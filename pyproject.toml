@@ -1,0 +1,40 @@
+[project]
+name = "napari-beacon"
+version = "1.0.0"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "napari[pyqt6,optional]", "opencv-python-headless", "napari_toolkit", "SimpleITK",
+    # dependencies for plugins in the workspace
+    "napari-promptable", 
+    "napari-promptable-sam2", 
+    "napari-shape-based-interpolation",
+    "napari-shifted-labels", 
+    "napari-edit-log", 
+    "napari-quick-view",
+    "napari-beacon-layers",
+    "napari-inverted-scrolling",
+    "napari-manual-segmentation",
+    "napari-nninteractive-minimal",
+    "artist_study_app",
+    "napari-view-switch",
+    # pinning to specific versions that was developed against
+    "napari-nninteractive==1.0.6",
+    "napari==0.6.6"
+]
+
+[tool.uv.sources]
+napari-promptable = { workspace = true }
+napari-promptable-sam2 = { workspace = true }
+napari-shape-based-interpolation = { workspace = true }
+napari-shifted-labels = { workspace = true }
+napari-edit-log = { workspace = true }
+napari-quick-view = { workspace = true }
+napari-view-switch = { workspace = true }
+napari-beacon-layers = { workspace = true }
+napari-inverted-scrolling = { workspace = true }
+napari-manual-segmentation = { workspace = true }
+napari-nninteractive-minimal = { workspace = true }
+artist-study-app = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*", "apps/*"]

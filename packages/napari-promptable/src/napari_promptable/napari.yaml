@@ -1,0 +1,21 @@
+name: napari-promptable
+display_name: Promptable Segmentation
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "napari-promptable.PromptableSegmentationWidget3DNoRegistration"
+      title: "No Registration 3D"
+      python_name: "napari_promptable:PromptableSegmentationWidget3DNoRegistration"
+    - id: "napari-promptable.PromptableSegmentationWidget2DNoRegistration"
+      title: "No Registration 2D"
+      python_name: "napari_promptable:PromptableSegmentationWidget2DNoRegistration"
+
+      
+  widgets:
+    - command: "napari-promptable.PromptableSegmentationWidget3DNoRegistration"
+      display_name: No Registration 3D
+    - command: "napari-promptable.PromptableSegmentationWidget2DNoRegistration"
+      display_name: No Registration 2D

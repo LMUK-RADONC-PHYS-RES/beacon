@@ -1,0 +1,15 @@
+name: napari-shape-based-interpolation
+display_name: Shape Based Interpolation
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "napari-shape-based-interpolation.ShapeBasedInterpolationWidget"
+      title: "Shape Based Interpolation"
+      python_name: "napari_shape_based_interpolation:ShapeBasedInterpolationWidget"
+  widgets:
+    - command: "napari-shape-based-interpolation.ShapeBasedInterpolationWidget"
+      display_name: Shape Based Interpolation
+      #autogenerate: true

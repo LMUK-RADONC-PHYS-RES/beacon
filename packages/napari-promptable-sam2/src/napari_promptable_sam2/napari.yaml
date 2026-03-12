@@ -1,0 +1,31 @@
+name: napari-promptable-sam2
+display_name: Promptable Segmentation SAM2
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    #- id: "napari-promptable.PromptableSegmentationWidgetSAM2_t"
+    #  title: "SAM2 2D+t"
+    #  python_name: "napari_promptable:PromptableSegmentationWidgetSAM2_t"
+    - id: "napari-promptable-sam2.PromptableSegmentationWidget2DSAM"
+      title: "SAM2 2D"
+      python_name: "napari_promptable_sam2:PromptableSegmentationWidget2DSAM"
+    - id: "napari-promptable-sam2.PromptableSegmentationWidget2DTSAM"
+      title: "SAM2 2D+t"
+      python_name: "napari_promptable_sam2:PromptableSegmentationWidget2DTSAM"
+    - id: "napari-promptable-sam2.PromptableSegmentationWidget3DSAM"
+      title: "SAM2 3D"
+      python_name: "napari_promptable_sam2:PromptableSegmentationWidget3DSAM"
+      
+  widgets:
+    #- command: "napari-promptable.PromptableSegmentationWidgetSAM2_t"
+    #  display_name: SAM2 2D+t
+    
+    - command: "napari-promptable-sam2.PromptableSegmentationWidget2DSAM"
+      display_name: SAM2 2D
+    - command: "napari-promptable-sam2.PromptableSegmentationWidget2DTSAM"
+      display_name: SAM2 2D+t
+    - command: "napari-promptable-sam2.PromptableSegmentationWidget3DSAM"
+      display_name: SAM2 3D

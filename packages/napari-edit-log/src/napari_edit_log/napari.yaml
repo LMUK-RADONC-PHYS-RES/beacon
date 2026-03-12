@@ -1,0 +1,15 @@
+name: napari-edit-log
+display_name: Edit Log
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "napari-edit-log.EditLogWidget"
+      title: "Edit log"
+      python_name: "napari_edit_log:EditLogWidget"
+  widgets:
+    - command: "napari-edit-log.EditLogWidget"
+      display_name: Edit log
+      #autogenerate: true

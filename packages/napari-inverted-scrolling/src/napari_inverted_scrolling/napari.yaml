@@ -1,0 +1,26 @@
+name: napari-inverted-scrolling
+display_name: Inverted Scrolling
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "napari-inverted-scrolling.invert_scrolling"
+      title: "Invert Scrolling"
+      python_name: "napari_inverted_scrolling:invert_scrolling"
+    - id: "napari-inverted-scrolling.reset_scrolling"
+      title: "Reset Scrolling"
+      python_name: "napari_inverted_scrolling:reset_scrolling"
+    - id: "napari-inverted-scrolling.invert_scrolling_2"
+      title: "Scroll through slices"
+      python_name: "napari_inverted_scrolling:invert_scrolling"
+    - id: "napari-inverted-scrolling.reset_scrolling_2"
+      title: "Scroll to zoom"
+      python_name: "napari_inverted_scrolling:reset_scrolling"
+  #  - id: "napari-inverted-scrolling.toggle_widget"
+  #    title: "Toggle Invert Scrolling Widget"
+  #    python_name: "napari_inverted_scrolling._widget:ToggleInvertedScrollingWidget"
+  #widgets:
+  #  - command: "napari-inverted-scrolling.toggle_widget"
+  #    display_name: Invert Scrolling

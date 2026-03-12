@@ -1,0 +1,16 @@
+name: napari-size-estimator
+display_name: Size Estimator
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "napari-size-estimator.SizeEstimatorWidget"
+      title: "Size Estimator"
+      python_name: "napari_size_estimator:SizeEstimatorWidget"
+  widgets:
+    - command: "napari-size-estimator.SizeEstimatorWidget"
+      display_name: Size Estimator
+  
+      #autogenerate: true

@@ -1,0 +1,27 @@
+name: napari-view-switch
+display_name: View Switch
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "napari-view-switch.ViewSwitchWidget"
+      title: "View Switch"
+      python_name: "napari_view_switch:ViewSwitchWidget"
+      
+    - id: "napari-view-switch.set_axial_view"
+      title: "Set Axial View"
+      python_name: "napari_view_switch:set_axial"
+      
+    - id: "napari-view-switch.set_coronal_view"
+      title: "Set Coronal View"
+      python_name: "napari_view_switch:set_coronal"
+
+    - id: "napari-view-switch.set_saggital_view"
+      title: "Set Saggital View"
+      python_name: "napari_view_switch:set_saggital"
+
+  widgets:
+    - command: "napari-view-switch.ViewSwitchWidget"
+      display_name: View Switch

@@ -1,0 +1,15 @@
+name: artist_study_app
+display_name: ARTIST Study App
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "artist_study_app.StudyAppWidget"
+      title: "ARTIST-Study"
+      python_name: "artist_study_app:StudyAppWidget"
+      
+  widgets:
+    - command: "artist_study_app.StudyAppWidget"
+      display_name: ARTIST-Study

@@ -1,0 +1,15 @@
+name: napari-quick-view
+display_name: Quick View
+# use 'hidden' to remove plugin from napari hub search results
+visibility: hidden
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "napari-quick-view.QuickViewWidget"
+      title: "QuickViewWidget"
+      python_name: "napari_quick_view:QuickViewWidget"
+      
+  widgets:
+    - command: "napari-quick-view.QuickViewWidget"
+      display_name: QuickViewWidget

@@ -1,0 +1,47 @@
+# output folder for saving results
+output_folder: ./example_study/example_output # relative to root of the repository or absolute path
+
+# order tasks presented to the user
+# the order is consistent between runs, by seeding with the user id
+order: random # possible values: sequential-methods, sequential-cases, random, manual
+
+# manual_order:
+# - method1_caseid1
+# - method2_caseid1
+# - method1_caseid2
+# - method2_caseid2
+
+methods:
+  - nnInteractive
+  - manual
+
+approve_mode: "NextRemove" # possible values: Reveal, Next, NextRemove
+confirm_before_approving: True # whether to ask the user to confirm before approving a segmentation result
+confirm_before_changing_tasks: True # whether to ask the user to confirm before changing tasks (to prevent accidental loss of work)
+
+# guidance type presented to the user based on existing segmentation masks
+guidance: False # possible values: True, False
+
+# contrast control
+contrast_preset: "CT: Lung" # null or one of the presets defined in packages/napari-beacon-layers/src/napari_beacon_layers/controls/fixed_image_controls.py
+custom_contrast_presets: # optional custom contrast presets to add to the contrast preset dropdown in the UI, defined as a mapping of preset name to (center, width) values
+  "CT: Custom1": [100.0, 400.0]
+contrast_shortcuts:
+  "Control+L": "CT: Lung"
+  "Control+M": "CT: Mediastinum"
+
+inverted_scrolling: True # whether to invert the zoom and scroll behavior (zoom with Ctrl + scroll, scroll through slices with regular scroll)
+
+interpolation: "bicubic" # default interpolation for the image layer, can be set per case in the cases section, possible values: "nearest", "bilinear", "bicubic", "spline16"  ‘bessel’, ‘bicubic’, ‘bilinear’, ‘blackman’, ‘catrom’, ‘gaussian’, ‘hamming’, ‘hanning’, ‘hermite’, ‘kaiser’, ‘lanczos’, ‘mitchell’, ‘nearest’, ‘spline16’, ‘spline36’
+
+cases_root_dir: "./example_data/3d mrlinac" # root folder for all cases, relative to root of the repository or absolute path
+cases:
+  - id: lung26 # case id
+    file: aumc_lung_patient026__GTV.mha # image file
+    mask: aumc_lung_patient026__GTV__mask.mha # optional mask to guide the user
+  - id: lung31
+    file: aumc_lung_patient031__GTV.mha
+    mask: null # optional mask to guide the user -> no mask provided for this case
+    name: "Metastatisis" # optional name to show in the UI for this case, if not provided the case id will be used
+
+# flip zoom and scroll through slicees with Ctrl + scroll -> 
