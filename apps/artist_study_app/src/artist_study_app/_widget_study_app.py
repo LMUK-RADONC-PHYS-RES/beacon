@@ -198,11 +198,13 @@ class StudyAppFullWidget(QWidget):
         self.automatic_segmentation_widget = None
         self.guidance_mask_data = None
         self.guidance_mask_spacing = None
+        self.guidance_surface_data = None
+        self.guidance_distance_data = None
         self.metrics_widget = None
         self.metrics_label = None
         self.metrics_timer = QTimer(self)
         self.metrics_timer.setInterval(METRICS_UPDATE_INTERVAL_MS)
-        self.metrics_timer.timeout.connect(self.update_segmentation_metrics)
+        self._metrics_timer_connected = False
 
         _layout = main_layout
 
@@ -291,18 +293,47 @@ class StudyAppFullWidget(QWidget):
                 self.metrics_widget.parent()._close_btn = False
             else:
                 self.metrics_widget.parent().show()
+            if not self._metrics_timer_connected:
+                self.metrics_timer.timeout.connect(self.update_segmentation_metrics)
+                self._metrics_timer_connected = True
             self.metrics_timer.start()
             self.update_segmentation_metrics()
             return
 
         self.metrics_timer.stop()
+        if self._metrics_timer_connected:
+            self.metrics_timer.timeout.disconnect(self.update_segmentation_metrics)
+            self._metrics_timer_connected = False
         if self.metrics_widget is not None:
             self.metrics_widget.parent().hide()
 
-    @staticmethod
-    def _compute_dsc_hd95(prediction_mask: np.ndarray, reference_mask: np.ndarray, spacing_xyz):
+    def _set_guidance_metrics_reference(self, reference_mask: np.ndarray, spacing_xyz):
+        """Cache fixed guidance-mask data for repeated DSC/HD95 updates.
+
+        Parameters
+        ----------
+        reference_mask : np.ndarray
+            3D boolean/binary reference mask in z-y-x layout.
+        spacing_xyz : sequence
+            Physical voxel spacing in x-y-z order used for distance metrics.
+        """
+        self.guidance_mask_data = reference_mask.astype(bool)
+        self.guidance_mask_spacing = tuple(float(x) for x in spacing_xyz)
+
+        ref_img = sitk.GetImageFromArray(self.guidance_mask_data.astype(np.uint8))
+        ref_img.SetSpacing(self.guidance_mask_spacing)
+        ref_surface = sitk.LabelContour(ref_img)
+        ref_distance = sitk.Abs(
+            sitk.SignedMaurerDistanceMap(ref_img, squaredDistance=False, useImageSpacing=True)
+        )
+
+        self.guidance_surface_data = sitk.GetArrayFromImage(ref_surface) > 0
+        self.guidance_distance_data = sitk.GetArrayFromImage(ref_distance)
+
+    def _compute_dsc_hd95(self, prediction_mask: np.ndarray):
         pred = prediction_mask.astype(bool)
-        ref = reference_mask.astype(bool)
+        ref = self.guidance_mask_data
+        spacing_xyz = self.guidance_mask_spacing
 
         pred_sum = pred.sum()
         ref_sum = ref.sum()
@@ -314,28 +345,20 @@ class StudyAppFullWidget(QWidget):
         dsc = 2.0 * np.logical_and(pred, ref).sum() / (pred_sum + ref_sum)
 
         pred_img = sitk.GetImageFromArray(pred.astype(np.uint8))
-        ref_img = sitk.GetImageFromArray(ref.astype(np.uint8))
         pred_img.SetSpacing(spacing_xyz)
-        ref_img.SetSpacing(spacing_xyz)
 
         pred_surface = sitk.LabelContour(pred_img)
-        ref_surface = sitk.LabelContour(ref_img)
         pred_distance = sitk.Abs(
             sitk.SignedMaurerDistanceMap(pred_img, squaredDistance=False, useImageSpacing=True)
         )
-        ref_distance = sitk.Abs(
-            sitk.SignedMaurerDistanceMap(ref_img, squaredDistance=False, useImageSpacing=True)
-        )
 
         pred_surface_arr = sitk.GetArrayFromImage(pred_surface) > 0
-        ref_surface_arr = sitk.GetArrayFromImage(ref_surface) > 0
         pred_distance_arr = sitk.GetArrayFromImage(pred_distance)
-        ref_distance_arr = sitk.GetArrayFromImage(ref_distance)
 
         surface_distances = np.concatenate(
             [
-                ref_distance_arr[pred_surface_arr],
-                pred_distance_arr[ref_surface_arr],
+                self.guidance_distance_data[pred_surface_arr],
+                pred_distance_arr[self.guidance_surface_data],
             ]
         )
         if surface_distances.size == 0:
@@ -365,7 +388,12 @@ class StudyAppFullWidget(QWidget):
     def update_segmentation_metrics(self):
         if self.metrics_label is None:
             return
-        if self.guidance_mask_data is None or self.guidance_mask_spacing is None:
+        if (
+            self.guidance_mask_data is None
+            or self.guidance_mask_spacing is None
+            or self.guidance_surface_data is None
+            or self.guidance_distance_data is None
+        ):
             self.metrics_label.setText("DSC: --\nHD95: --")
             return
 
@@ -379,7 +407,7 @@ class StudyAppFullWidget(QWidget):
             self.metrics_label.setText("DSC: n/a\nHD95: n/a")
             return
 
-        dsc, hd95 = self._compute_dsc_hd95(segmentation, self.guidance_mask_data, self.guidance_mask_spacing)
+        dsc, hd95 = self._compute_dsc_hd95(segmentation)
         hd95_text = "n/a" if np.isnan(hd95) else f"{hd95:.2f} mm"
         self.metrics_label.setText(f"DSC: {dsc:.4f}\nHD95: {hd95_text}")
 
@@ -407,6 +435,8 @@ class StudyAppFullWidget(QWidget):
             self.guidance_layer = None
         self.guidance_mask_data = None
         self.guidance_mask_spacing = None
+        self.guidance_surface_data = None
+        self.guidance_distance_data = None
         self._set_metrics_widget_visible(False)
         
         # remove other labels layers
@@ -474,8 +504,7 @@ class StudyAppFullWidget(QWidget):
                 self.guidance_layer.contour = 1
                 self.guidance_layer.colormap = self.colormap[(len(self._viewer.layers) + 1) % self.colormap.num_colors]
                 self.guidance_layer.opacity = 1.0
-                self.guidance_mask_data = mask > 0
-                self.guidance_mask_spacing = tuple(float(x) for x in mask_sitk.GetSpacing())
+                self._set_guidance_metrics_reference(mask > 0, mask_sitk.GetSpacing())
             else:
                 print("Guidance center of mass:", com)
                 self.guidance_layer = PreviewPointsLayer(
@@ -860,7 +889,6 @@ class StudyAppFullWidget(QWidget):
 
         self._set_metrics_widget_visible(False)
         if self.metrics_widget is not None:
-            self.metrics_timer.stop()
             self._viewer.window.remove_dock_widget(self.metrics_widget)
             self.metrics_widget.close()
             self.metrics_widget = None
