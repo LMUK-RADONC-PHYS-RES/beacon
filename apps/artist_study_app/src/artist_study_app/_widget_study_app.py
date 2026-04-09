@@ -353,7 +353,7 @@ class StudyAppFullWidget(QWidget):
                     name=f'Guidance {case_id}',
                 )
                 self.guidance_layer.contour = 1
-                self.guidance_layer.colormap = self.colormap[len(self._viewer.layers)%self.colormap.num_colors]
+                self.guidance_layer.colormap = self.colormap[len(self._viewer.layers) % self.colormap.num_colors]
                 self.guidance_layer.opacity = 1.0
             else:
                 print("Guidance center of mass:", com)
