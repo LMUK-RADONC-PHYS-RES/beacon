@@ -254,6 +254,19 @@ class StudyAppFullWidget(QWidget):
             f"Task: {current_task['method']} - {current_task['case_id']}  ({self.current_task_index+1}/{len(self.study_tasks)})"
         )
 
+    def _get_guidance_mode(self):
+        guidance = self.study_protocol.get("guidance", False)
+        if isinstance(guidance, bool):
+            return "point" if guidance else "none"
+        if guidance is None:
+            return "none"
+        guidance = str(guidance).strip().lower()
+        if guidance in ("false", "none", ""):
+            return "none"
+        if guidance in ("full-3d-mask", "full_3d_mask", "mask", "labels"):
+            return "full-3d-mask"
+        return "point"
+
     def load_next_task(self):
         if self.study_protocol.get("confirm_before_changing_tasks", True) and not self.confirm_dialog("Proceed", "The segmentation was not approved. Are you sure you want to proceed? Any segmentation done on this patient will be lost without approval."):
             return
@@ -326,23 +339,34 @@ class StudyAppFullWidget(QWidget):
 
 
         # load guidance mask if provided
-        if (task["mask_file"] is not None) and self.study_protocol.get("guidance", False):
+        guidance_mode = self._get_guidance_mode()
+        if (task["mask_file"] is not None) and guidance_mode != "none":
             mask_sitk = sitk.ReadImage(task["mask_file"])
             mask = sitk.GetArrayFromImage(mask_sitk)
 
             from scipy.ndimage import center_of_mass
             com = np.array(center_of_mass(mask)).astype(np.int32)
-            print("Guidance center of mass:", com)
-            self.guidance_layer = PreviewPointsLayer(
-                com[np.newaxis, :],
-                name=f'Guidance {case_id}',
-                size=2,
-                face_color='red',
-                border_color="white"
-            )
-            
+
+            if guidance_mode == "full-3d-mask":
+                self.guidance_layer = PreviewLabelsLayer(
+                    mask,
+                    name=f'Guidance {case_id}',
+                )
+                self.guidance_layer.contour = 1
+                self.guidance_layer.colormap = self.colormap[(len(self._viewer.layers) + 1) % self.colormap.num_colors]
+                self.guidance_layer.opacity = 1.0
+            else:
+                print("Guidance center of mass:", com)
+                self.guidance_layer = PreviewPointsLayer(
+                    com[np.newaxis, :],
+                    name=f'Guidance {case_id}',
+                    size=2,
+                    face_color='red',
+                    border_color="white"
+                )
+                self.guidance_layer.opacity = 0.8
+
             self.guidance_layer.scale = np.array([-1,1,1]) * np.array(mask_sitk.GetSpacing()[::-1])  # reverse for napari xyz vs sitk zyx
-            self.guidance_layer.opacity = 0.8
             self.guidance_layer.editable = False
             self._viewer.add_layer(self.guidance_layer)
             self._viewer.dims.set_current_step(0, img.shape[0] - com[0] -1)
