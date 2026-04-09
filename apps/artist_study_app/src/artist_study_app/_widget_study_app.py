@@ -65,6 +65,9 @@ from .multi_viewer import setup_multiple_viewer_widget, MultipleViewerWidget
 from napari_edit_log.edit_log import NapariEditLog
 from napari_inverted_scrolling import invert_scrolling, reset_scrolling, is_inverted
 from .acknowledgements import setup_acknowledgements
+
+METRICS_UPDATE_INTERVAL_MS = 3000
+
 class StudyAppWidget(QWidget):
     def __init__(self, viewer: Viewer):
         super().__init__()
@@ -198,7 +201,7 @@ class StudyAppFullWidget(QWidget):
         self.metrics_widget = None
         self.metrics_label = None
         self.metrics_timer = QTimer(self)
-        self.metrics_timer.setInterval(3000)
+        self.metrics_timer.setInterval(METRICS_UPDATE_INTERVAL_MS)
         self.metrics_timer.timeout.connect(self.update_segmentation_metrics)
 
         _layout = main_layout
@@ -534,7 +537,7 @@ class StudyAppFullWidget(QWidget):
                 self._viewer.window.add_dock_widget(
                     self.automatic_segmentation_widget, name="nnInteractive Segmentation", area="right"
                 )
-                self.automatic_segmentation_widget.parent()._close_btn=False
+                self.automatic_segmentation_widget.parent()._close_btn = False
             else:
                 self.automatic_segmentation_widget.parent().show()
 
@@ -846,17 +849,18 @@ class StudyAppFullWidget(QWidget):
             self.manual_segmentation_widget.allow_close = True
             self._viewer.window.remove_dock_widget(self.manual_segmentation_widget)
             self.manual_segmentation_widget.close()
-            self.manual_segmentation_widget = None
             self.manual_segmentation_widget.deleteLater()
+            self.manual_segmentation_widget = None
         
         if self.automatic_segmentation_widget is not None:
             self._viewer.window.remove_dock_widget(self.automatic_segmentation_widget)
             self.automatic_segmentation_widget.close()
-            self.automatic_segmentation_widget = None
             self.automatic_segmentation_widget.deleteLater()
+            self.automatic_segmentation_widget = None
 
         self._set_metrics_widget_visible(False)
         if self.metrics_widget is not None:
+            self.metrics_timer.stop()
             self._viewer.window.remove_dock_widget(self.metrics_widget)
             self.metrics_widget.close()
             self.metrics_widget = None
