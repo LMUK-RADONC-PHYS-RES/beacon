@@ -32,13 +32,14 @@ from napari.qt.threading import thread_worker
 from napari_toolkit.widgets import setup_iconbutton, setup_label
 from qtpy.QtWidgets import (
     QFileDialog,
+    QLabel,
     QSizePolicy,
     QVBoxLayout,
     QPushButton,
     QWidget,
     QMessageBox
 )
-from qtpy.QtCore import Qt  # type: ignore[attr-defined]
+from qtpy.QtCore import Qt, QTimer  # type: ignore[attr-defined]
 
 from qtpy.QtGui import (
     QTextOption
@@ -192,6 +193,13 @@ class StudyAppFullWidget(QWidget):
 
         self.manual_segmentation_widget = None
         self.automatic_segmentation_widget = None
+        self.guidance_mask_data = None
+        self.guidance_mask_spacing = None
+        self.metrics_widget = None
+        self.metrics_label = None
+        self.metrics_timer = QTimer(self)
+        self.metrics_timer.setInterval(3000)
+        self.metrics_timer.timeout.connect(self.update_segmentation_metrics)
 
         _layout = main_layout
 
@@ -267,6 +275,111 @@ class StudyAppFullWidget(QWidget):
             return "full-3d-mask"
         return "point"
 
+    def _set_metrics_widget_visible(self, visible: bool):
+        if visible:
+            if self.metrics_widget is None:
+                self.metrics_widget = QWidget()
+                metrics_layout = QVBoxLayout(self.metrics_widget)
+                self.metrics_label = QLabel("DSC: --\nHD95: --")
+                metrics_layout.addWidget(self.metrics_label)
+                self._viewer.window.add_dock_widget(
+                    self.metrics_widget, name="Segmentation Metrics", area="right"
+                )
+                self.metrics_widget.parent()._close_btn = False
+            else:
+                self.metrics_widget.parent().show()
+            self.metrics_timer.start()
+            self.update_segmentation_metrics()
+            return
+
+        self.metrics_timer.stop()
+        if self.metrics_widget is not None:
+            self.metrics_widget.parent().hide()
+
+    @staticmethod
+    def _compute_dsc_hd95(prediction_mask: np.ndarray, reference_mask: np.ndarray, spacing_xyz):
+        pred = prediction_mask.astype(bool)
+        ref = reference_mask.astype(bool)
+
+        pred_sum = pred.sum()
+        ref_sum = ref.sum()
+        if pred_sum == 0 and ref_sum == 0:
+            return 1.0, 0.0
+        if pred_sum == 0 or ref_sum == 0:
+            return 0.0, np.nan
+
+        dsc = 2.0 * np.logical_and(pred, ref).sum() / (pred_sum + ref_sum)
+
+        pred_img = sitk.GetImageFromArray(pred.astype(np.uint8))
+        ref_img = sitk.GetImageFromArray(ref.astype(np.uint8))
+        pred_img.SetSpacing(spacing_xyz)
+        ref_img.SetSpacing(spacing_xyz)
+
+        pred_surface = sitk.LabelContour(pred_img)
+        ref_surface = sitk.LabelContour(ref_img)
+        pred_distance = sitk.Abs(
+            sitk.SignedMaurerDistanceMap(pred_img, squaredDistance=False, useImageSpacing=True)
+        )
+        ref_distance = sitk.Abs(
+            sitk.SignedMaurerDistanceMap(ref_img, squaredDistance=False, useImageSpacing=True)
+        )
+
+        pred_surface_arr = sitk.GetArrayFromImage(pred_surface) > 0
+        ref_surface_arr = sitk.GetArrayFromImage(ref_surface) > 0
+        pred_distance_arr = sitk.GetArrayFromImage(pred_distance)
+        ref_distance_arr = sitk.GetArrayFromImage(ref_distance)
+
+        surface_distances = np.concatenate(
+            [
+                ref_distance_arr[pred_surface_arr],
+                pred_distance_arr[ref_surface_arr],
+            ]
+        )
+        if surface_distances.size == 0:
+            return float(dsc), 0.0
+
+        hd95 = float(np.percentile(surface_distances, 95))
+        return float(dsc), hd95
+
+    def _get_current_segmentation_layer(self):
+        active_layer = self._viewer.layers.selection.active
+        if (
+            isinstance(active_layer, Labels)
+            and active_layer is not self.guidance_layer
+            and getattr(active_layer, "editable", True)
+        ):
+            return active_layer
+
+        for layer in reversed(self._viewer.layers):
+            if (
+                isinstance(layer, Labels)
+                and layer is not self.guidance_layer
+                and getattr(layer, "editable", True)
+            ):
+                return layer
+        return None
+
+    def update_segmentation_metrics(self):
+        if self.metrics_label is None:
+            return
+        if self.guidance_mask_data is None or self.guidance_mask_spacing is None:
+            self.metrics_label.setText("DSC: --\nHD95: --")
+            return
+
+        segmentation_layer = self._get_current_segmentation_layer()
+        if segmentation_layer is None:
+            self.metrics_label.setText("DSC: --\nHD95: --")
+            return
+
+        segmentation = np.asarray(segmentation_layer.data) > 0
+        if segmentation.shape != self.guidance_mask_data.shape:
+            self.metrics_label.setText("DSC: n/a\nHD95: n/a")
+            return
+
+        dsc, hd95 = self._compute_dsc_hd95(segmentation, self.guidance_mask_data, self.guidance_mask_spacing)
+        hd95_text = "n/a" if np.isnan(hd95) else f"{hd95:.2f} mm"
+        self.metrics_label.setText(f"DSC: {dsc:.4f}\nHD95: {hd95_text}")
+
     def load_next_task(self):
         if self.study_protocol.get("confirm_before_changing_tasks", True) and not self.confirm_dialog("Proceed", "The segmentation was not approved. Are you sure you want to proceed? Any segmentation done on this patient will be lost without approval."):
             return
@@ -289,6 +402,9 @@ class StudyAppFullWidget(QWidget):
         if self.guidance_layer is not None:
             self._viewer.layers.remove(self.guidance_layer)
             self.guidance_layer = None
+        self.guidance_mask_data = None
+        self.guidance_mask_spacing = None
+        self._set_metrics_widget_visible(False)
         
         # remove other labels layers
         for layer in self._viewer.layers:
@@ -355,6 +471,8 @@ class StudyAppFullWidget(QWidget):
                 self.guidance_layer.contour = 1
                 self.guidance_layer.colormap = self.colormap[(len(self._viewer.layers) + 1) % self.colormap.num_colors]
                 self.guidance_layer.opacity = 1.0
+                self.guidance_mask_data = mask > 0
+                self.guidance_mask_spacing = tuple(float(x) for x in mask_sitk.GetSpacing())
             else:
                 print("Guidance center of mass:", com)
                 self.guidance_layer = PreviewPointsLayer(
@@ -419,6 +537,12 @@ class StudyAppFullWidget(QWidget):
                 self.automatic_segmentation_widget.parent()._close_btn=False
             else:
                 self.automatic_segmentation_widget.parent().show()
+
+        self._set_metrics_widget_visible(
+            guidance_mode == "full-3d-mask"
+            and method in ("manual", "nnInteractive")
+            and self.guidance_mask_data is not None
+        )
         
         self.update_task_counter()
 
@@ -730,6 +854,13 @@ class StudyAppFullWidget(QWidget):
             self.automatic_segmentation_widget.close()
             self.automatic_segmentation_widget = None
             self.automatic_segmentation_widget.deleteLater()
+
+        self._set_metrics_widget_visible(False)
+        if self.metrics_widget is not None:
+            self._viewer.window.remove_dock_widget(self.metrics_widget)
+            self.metrics_widget.close()
+            self.metrics_widget = None
+            self.metrics_label = None
 
         for shortcut in self.study_protocol.get("contrast_shortcuts", {}).keys():
             self._viewer.bind_key(shortcut, ..., overwrite=True)
