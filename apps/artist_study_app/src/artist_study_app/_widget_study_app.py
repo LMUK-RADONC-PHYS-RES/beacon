@@ -374,7 +374,7 @@ class StudyAppFullWidget(QWidget):
             if self.metrics_widget is not None:
                 self.metrics_widget.parent().show()
             else:
-                self.metrics_widget = SegmentationMetricsWidget(self._viewer)
+                self.metrics_widget = SegmentationMetricsWidget(self._viewer, edit_log=self.edit_log)
                 self.metrics_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
                 self._viewer.window.add_dock_widget(
                     self.metrics_widget, name="Segmentation Metrics", area="right", add_vertical_stretch=False

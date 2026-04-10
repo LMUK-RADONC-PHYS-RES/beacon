@@ -28,7 +28,7 @@ from napari_beacon_layers import FixedImageLayer, PreviewLabelsLayer, ManualLabe
 METRICS_UPDATE_INTERVAL_MS = 3000
 
 class SegmentationMetricsWidget(QWidget):
-    def __init__(self, viewer: Viewer, update_interval_ms: int = METRICS_UPDATE_INTERVAL_MS):
+    def __init__(self, viewer: Viewer, update_interval_ms: int = METRICS_UPDATE_INTERVAL_MS, edit_log = None):
         super().__init__()
         self._viewer = viewer
         self._guidance_layer = None
@@ -37,6 +37,8 @@ class SegmentationMetricsWidget(QWidget):
         self._reference_mask_spacing = None
         self._reference_surface_data = None
         self._reference_distance_data = None
+
+        self.edit_log = edit_log
 
         layout = QVBoxLayout(self)
         self.metrics_label = QLabel("DSC: --\nHD95: --")
@@ -157,3 +159,16 @@ class SegmentationMetricsWidget(QWidget):
         dsc, hd95 = self._compute_dsc_hd95(segmentation)
         hd95_text = "n/a" if np.isnan(hd95) else f"{hd95:.2f} mm"
         self.metrics_label.setText(f"DSC: {dsc:.4f}\nHD95: {hd95_text}")
+        
+        print(f"Updated metrics: DSC={dsc:.4f}, HD95={hd95_text}")
+
+        if self.edit_log is not None:
+            self.edit_log.record({
+                'event_group': 'metrics',
+                'event_type': "metrics_updated",
+                'timestamp': time.time(),
+                'data': {
+                    'dsc': dsc,
+                    'hd95': hd95,
+                }
+            })
