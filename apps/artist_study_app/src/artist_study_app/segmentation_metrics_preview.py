@@ -162,7 +162,7 @@ class SegmentationMetricsWidget(QWidget):
         
         print(f"Updated metrics: DSC={dsc:.4f}, HD95={hd95_text}")
 
-        if self.edit_log is not None:
+        if self.edit_log is not None and len(self.edit_log._log) > 0 and self.edit_log._log[-1]['event_type'] != "metrics_updated":
             self.edit_log.record({
                 'event_group': 'metrics',
                 'event_type': "metrics_updated",
