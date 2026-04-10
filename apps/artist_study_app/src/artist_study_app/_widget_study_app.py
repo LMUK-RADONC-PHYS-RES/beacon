@@ -32,6 +32,7 @@ from napari.qt.threading import thread_worker
 from napari_toolkit.widgets import setup_iconbutton, setup_label
 from qtpy.QtWidgets import (
     QFileDialog,
+    QLabel,
     QSizePolicy,
     QVBoxLayout,
     QPushButton,
@@ -39,22 +40,9 @@ from qtpy.QtWidgets import (
     QMessageBox
 )
 from qtpy.QtCore import Qt  # type: ignore[attr-defined]
-
-from qtpy.QtGui import (
-    QTextOption
-)
-import traceback
 import glob
-from napari._qt.layer_controls.qt_layer_controls_container import layer_to_controls
 
-from napari.utils.notifications import show_info, show_warning, show_error, show_console_notification
-from napari import Viewer
 import SimpleITK as sitk
-from scipy.interpolate import interpn
-from napari_quick_view._widget_file_list import FileListWidget
-
-from napari_quick_view.file_select import setup_dirselect
-from napari_quick_view.layer_select import setup_layerselect
 from napari_beacon_layers import FixedImageLayer, PreviewLabelsLayer, ManualLabelsLayer, PreviewPointsLayer
 from napari_manual_segmentation import ManualSegmentationWidget
 from napari_manual_segmentation.utils.utils import ColorMapper, determine_layer_index
@@ -64,6 +52,8 @@ from .multi_viewer import setup_multiple_viewer_widget, MultipleViewerWidget
 from napari_edit_log.edit_log import NapariEditLog
 from napari_inverted_scrolling import invert_scrolling, reset_scrolling, is_inverted
 from .acknowledgements import setup_acknowledgements
+from .segmentation_metrics_preview import SegmentationMetricsWidget
+
 class StudyAppWidget(QWidget):
     def __init__(self, viewer: Viewer):
         super().__init__()
@@ -192,6 +182,7 @@ class StudyAppFullWidget(QWidget):
 
         self.manual_segmentation_widget = None
         self.automatic_segmentation_widget = None
+        self.metrics_widget = None
 
         _layout = main_layout
 
@@ -282,6 +273,12 @@ class StudyAppFullWidget(QWidget):
 
     def clear_task(self):
         self.edit_log.stop()
+
+        if self.metrics_widget is not None:
+            self.metrics_widget.stop_updates()
+            self.metrics_widget.clear_reference_mask()
+            self.metrics_widget.parent().hide()
+
         if self.image_layer is not None:
             self._viewer.layers.remove(self.image_layer)
             self.image_layer = None
@@ -289,7 +286,7 @@ class StudyAppFullWidget(QWidget):
         if self.guidance_layer is not None:
             self._viewer.layers.remove(self.guidance_layer)
             self.guidance_layer = None
-        
+
         # remove other labels layers
         for layer in self._viewer.layers:
             if isinstance(layer, Labels):
@@ -369,9 +366,23 @@ class StudyAppFullWidget(QWidget):
             self.guidance_layer.scale = np.array([-1,1,1]) * np.array(mask_sitk.GetSpacing()[::-1])  # reverse for napari xyz vs sitk zyx
             self.guidance_layer.editable = False
             self._viewer.add_layer(self.guidance_layer)
-            self._viewer.dims.set_current_step(0, img.shape[0] - com[0] -1)
+            self._viewer.dims.set_current_step(0, img.shape[0] - com[0] - 1)
             self._viewer.dims.set_current_step(1, com[1])
             self._viewer.dims.set_current_step(2, com[2])
+
+        if guidance_mode == "full-3d-mask":
+            if self.metrics_widget is not None:
+                self.metrics_widget.parent().show()
+            else:
+                self.metrics_widget = SegmentationMetricsWidget(self._viewer, edit_log=self.edit_log)
+                self.metrics_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                self._viewer.window.add_dock_widget(
+                    self.metrics_widget, name="Segmentation Metrics", area="right", add_vertical_stretch=False
+                )
+                self.metrics_widget.parent()._close_btn = False
+                self.metrics_widget.parent().show()
+            self.metrics_widget.set_reference_mask(self.guidance_layer, mask > 0, mask_sitk.GetSpacing())
+            self.metrics_widget.start_updates()
 
         # load approved segmentations if existing
         output_folder = self.study_protocol.get("output_folder", "")
@@ -416,7 +427,7 @@ class StudyAppFullWidget(QWidget):
                 self._viewer.window.add_dock_widget(
                     self.automatic_segmentation_widget, name="nnInteractive Segmentation", area="right"
                 )
-                self.automatic_segmentation_widget.parent()._close_btn=False
+                self.automatic_segmentation_widget.parent()._close_btn = False
             else:
                 self.automatic_segmentation_widget.parent().show()
         
@@ -722,15 +733,22 @@ class StudyAppFullWidget(QWidget):
             self.manual_segmentation_widget.allow_close = True
             self._viewer.window.remove_dock_widget(self.manual_segmentation_widget)
             self.manual_segmentation_widget.close()
-            self.manual_segmentation_widget = None
             self.manual_segmentation_widget.deleteLater()
+            self.manual_segmentation_widget = None
         
         if self.automatic_segmentation_widget is not None:
             self._viewer.window.remove_dock_widget(self.automatic_segmentation_widget)
             self.automatic_segmentation_widget.close()
-            self.automatic_segmentation_widget = None
             self.automatic_segmentation_widget.deleteLater()
+            self.automatic_segmentation_widget = None
 
+        if self.metrics_widget is not None:
+            self.metrics_widget.stop_updates()
+            self._viewer.window.remove_dock_widget(self.metrics_widget)
+            self.metrics_widget.close()
+            self.metrics_widget.deleteLater()
+            self.metrics_widget = None
+            
         for shortcut in self.study_protocol.get("contrast_shortcuts", {}).keys():
             self._viewer.bind_key(shortcut, ..., overwrite=True)
         
