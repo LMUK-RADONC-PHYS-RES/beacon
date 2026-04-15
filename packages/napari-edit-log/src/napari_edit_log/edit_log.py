@@ -217,7 +217,7 @@ class NapariEditLog():
         self.record({
             'event_group': 'layer',
             'event_type': str(event.type),
-            #'layer': event._sources[0].name,
+            'layer_name': event._sources[0].name,
             #'data': str(event.__dict__),
             'timestamp': time.time()
         })
