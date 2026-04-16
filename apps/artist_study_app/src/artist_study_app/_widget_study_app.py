@@ -272,11 +272,13 @@ class StudyAppFullWidget(QWidget):
             self._task_combobox.setCurrentIndex(self.current_task_index - 1)
 
     def clear_task(self):
+        # Disconnect event listeners from widgets
+        self._disconnect_widget_events()
+
         self.edit_log.stop()
 
         if self.metrics_widget is not None:
             self.metrics_widget.stop_updates()
-            self.metrics_widget.clear_reference_mask()
             self.metrics_widget.parent().hide()
 
         if self.image_layer is not None:
@@ -375,13 +377,13 @@ class StudyAppFullWidget(QWidget):
                 self.metrics_widget.parent().show()
             else:
                 self.metrics_widget = SegmentationMetricsWidget(self._viewer, edit_log=self.edit_log)
+                set_value(self.metrics_widget.layer_select_1, self.guidance_layer.name)
                 self.metrics_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
                 self._viewer.window.add_dock_widget(
                     self.metrics_widget, name="Segmentation Metrics", area="right", add_vertical_stretch=False
                 )
                 self.metrics_widget.parent()._close_btn = False
                 self.metrics_widget.parent().show()
-            self.metrics_widget.set_reference_mask(self.guidance_layer, mask > 0, mask_sitk.GetSpacing())
             self.metrics_widget.start_updates()
 
         # load approved segmentations if existing
@@ -451,6 +453,9 @@ class StudyAppFullWidget(QWidget):
 
         self.edit_log.start()
 
+        # Connect event listeners to widgets
+        self._connect_widget_events()
+
         self.edit_log.record({
             'event_group': 'study',
             'event_type': "load_task",
@@ -469,6 +474,8 @@ class StudyAppFullWidget(QWidget):
 
         for layer in self._viewer.layers:
             if isinstance(layer, Labels):
+                if layer.name.startswith("Guidance"):
+                    continue
                 output_path = os.path.join(
                     output_folder,
                     f"{self.user_id}_case{case_id}_method{method}_layer{layer.name}.mha"
@@ -539,10 +546,6 @@ class StudyAppFullWidget(QWidget):
                 self.hide()
                 self.close()
                 self._viewer.window.remove_dock_widget(self)
-
-                self._viewer.window.add_dock_widget(
-                    StudyAppWidget(self._viewer), name="ARTIST study", area="left"
-                )
                 
         self.update_task_counter()
         
@@ -769,3 +772,72 @@ class StudyAppFullWidget(QWidget):
     def confirm_dialog(self, title, message):
         reply = QMessageBox.question(self, title, message, QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         return reply == QMessageBox.Yes
+
+    # Event handlers for widget events
+    def _on_manual_segmentation_next_object(self):
+        """Handler for manual segmentation widget next_object event."""
+        self.edit_log.record({
+            'event_group': 'widget',
+            'event_type': 'manual_segmentation_next_object',
+            'timestamp': time.time()
+        })
+
+    def _on_manual_segmentation_reset_interactions(self):
+        """Handler for manual segmentation widget reset_interactions event."""
+        self.edit_log.record({
+            'event_group': 'widget',
+            'event_type': 'manual_segmentation_reset_interactions',
+            'timestamp': time.time()
+        })
+
+    def _on_nninteractive_next_object(self):
+        """Handler for nnInteractive widget next_object event."""
+        self.edit_log.record({
+            'event_group': 'widget',
+            'event_type': 'nninteractive_next_object',
+            'timestamp': time.time()
+        })
+
+    def _on_nninteractive_reset_interactions(self):
+        """Handler for nnInteractive widget reset_interactions event."""
+        self.edit_log.record({
+            'event_group': 'widget',
+            'event_type': 'nninteractive_reset_interactions',
+            'timestamp': time.time()
+        })
+
+    def _on_nninteractive_add_interaction(self):
+        """Handler for nnInteractive widget add_interaction event."""
+        self.edit_log.record({
+            'event_group': 'widget',
+            'event_type': 'nninteractive_add_interaction',
+            'timestamp': time.time()
+        })
+
+    def _connect_widget_events(self):
+        """Connect event listeners to manual segmentation and nnInteractive widgets."""
+        if self.manual_segmentation_widget is not None:
+            self.manual_segmentation_widget.events.next_object.connect(self._on_manual_segmentation_next_object)
+            self.manual_segmentation_widget.events.reset_interactions.connect(self._on_manual_segmentation_reset_interactions)
+
+        if self.automatic_segmentation_widget is not None:
+            self.automatic_segmentation_widget.events.next_object.connect(self._on_nninteractive_next_object)
+            self.automatic_segmentation_widget.events.reset_interactions.connect(self._on_nninteractive_reset_interactions)
+            self.automatic_segmentation_widget.events.add_interaction.connect(self._on_nninteractive_add_interaction)
+
+    def _disconnect_widget_events(self):
+        """Disconnect event listeners from manual segmentation and nnInteractive widgets."""
+        if self.manual_segmentation_widget is not None:
+            try:
+                self.manual_segmentation_widget.events.next_object.disconnect(self._on_manual_segmentation_next_object)
+                self.manual_segmentation_widget.events.reset_interactions.disconnect(self._on_manual_segmentation_reset_interactions)
+            except Exception:
+                pass
+
+        if self.automatic_segmentation_widget is not None:
+            try:
+                self.automatic_segmentation_widget.events.next_object.disconnect(self._on_nninteractive_next_object)
+                self.automatic_segmentation_widget.events.reset_interactions.disconnect(self._on_nninteractive_reset_interactions)
+                self.automatic_segmentation_widget.events.add_interaction.disconnect(self._on_nninteractive_add_interaction)
+            except Exception:
+                pass

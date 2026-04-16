@@ -5,6 +5,7 @@ from napari_nninteractive.layers.point_layer import SinglePointLayer
 
 from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer, FixedImageLayer
 from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice, crop_and_pad_nd
+from napari.utils.events import EventEmitter, EmitterGroup, Event, EventedList
 
 class nnInteractiveWidgetMinimal(nnInteractiveWidget):
     def __init__(self, viewer: 'napari.viewer.Viewer', **kwargs):
@@ -12,6 +13,13 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         self._width = 250
 
         self.layout().setContentsMargins(0,0,0,0)
+
+        # Define events
+        self.events = EmitterGroup(self,
+            next_object = Event,
+            reset_interactions = Event,
+            add_interaction = Event,
+        )
 
         # Modify the UI
         self.model_selection.parent().setHidden(True)
@@ -46,7 +54,6 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
                 self.interactions[interaction_channel] = initial_seg.to(self.interactions.device)
 
         #self._viewer.layers.selection.events.active.connect(on_interaction)
-
 
     def add_preview_label_layer(self, data, name) -> None:
         """
@@ -126,6 +133,14 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         point_layer.events.finished.connect(self.on_interaction)
         self._viewer.add_layer(point_layer)
     
+    def add_interaction(self) -> None:
+        super().add_interaction_layer()
+        self.events.add_interaction()
+
+    def on_reset_interactions(self) -> None:
+        super().on_reset_interactions()
+        self.events.reset_interactions()
+    
     def on_next(self) -> None:
         """
         Prepares the next label layer for interactions in the viewer.
@@ -154,6 +169,8 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
 
         self.object_index += 1
         label_layer.colormap = self.colormap[self.object_index]
+        
+        self.events.next_object()
 
         self._clear_layers()
         self.prompt_button._uncheck()

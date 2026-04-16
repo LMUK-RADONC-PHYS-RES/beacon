@@ -31,18 +31,22 @@ class SegmentationMetricsWidget(QWidget):
     def __init__(self, viewer: Viewer, update_interval_ms: int = METRICS_UPDATE_INTERVAL_MS, edit_log = None):
         super().__init__()
         self._viewer = viewer
-        self._guidance_layer = None
-
-        self._reference_mask_data = None
-        self._reference_mask_spacing = None
-        self._reference_surface_data = None
-        self._reference_distance_data = None
-
         self.edit_log = edit_log
 
         layout = QVBoxLayout(self)
-        setup_label(layout, "Select comparison layer:")
-        self.segmentation_layer_select = setup_layerselect(layout, viewer, Labels, function=self.on_segmentation_layer_changed)
+        
+        
+        self.layer_select_1 = setup_layerselect(None, viewer, Labels, function=self.on_layers_changed)
+        hstack(layout,[
+            QLabel("Reference:"),
+            self.layer_select_1
+        ], stretch=[0,1])
+
+        self.layer_select_2 = setup_layerselect(None, viewer, Labels, function=self.on_layers_changed)
+        hstack(layout,[
+            QLabel("Segmentation:"),
+            self.layer_select_2
+        ], stretch=[0,1])
 
         self.metrics_label = QLabel("DSC: --\nHD95: --")
         layout.addWidget(self.metrics_label)
@@ -52,30 +56,8 @@ class SegmentationMetricsWidget(QWidget):
         self.metrics_timer.timeout.connect(self.update_segmentation_metrics)
 
     def has_reference_mask(self) -> bool:
-        return self._reference_mask_data is not None
-
-    def set_reference_mask(self, reference_mask_layer:Labels, reference_mask: np.ndarray, spacing_xyz):
-        self._guidance_layer = reference_mask_layer
-        self._reference_mask_data = reference_mask.astype(bool)
-        self._reference_mask_spacing = tuple(float(x) for x in spacing_xyz)
-
-        ref_img = sitk.GetImageFromArray(self._reference_mask_data.astype(np.uint8))
-        ref_img.SetSpacing(self._reference_mask_spacing)
-        ref_surface = sitk.LabelContour(ref_img)
-        ref_distance = sitk.Abs(
-            sitk.SignedMaurerDistanceMap(ref_img, squaredDistance=False, useImageSpacing=True)
-        )
-
-        self._reference_surface_data = sitk.GetArrayFromImage(ref_surface) > 0
-        self._reference_distance_data = sitk.GetArrayFromImage(ref_distance)
-
-    def clear_reference_mask(self):
-        self._guidance_layer = None
-        self._reference_mask_data = None
-        self._reference_mask_spacing = None
-        self._reference_surface_data = None
-        self._reference_distance_data = None
-        self.metrics_label.setText("DSC: --\nHD95: --")
+        """Check if both layers are available."""
+        return self._get_layer_1() is not None and self._get_layer_2() is not None
 
     def start_updates(self):
         self.metrics_timer.start()
@@ -84,13 +66,10 @@ class SegmentationMetricsWidget(QWidget):
     def stop_updates(self):
         self.metrics_timer.stop()
 
-    def on_segmentation_layer_changed(self):
-        self.update_segmentation_metrics()
-
-    def _compute_dsc_hd95(self, prediction_mask: np.ndarray):
-        pred = prediction_mask.astype(bool)
-        ref = self._reference_mask_data
-        spacing_xyz = self._reference_mask_spacing
+    def _compute_dsc_hd95(self, mask1: np.ndarray, mask2: np.ndarray, spacing_xyz=None):
+        """Compute DSC and HD95 metrics between two masks (values > 0)."""
+        pred = (mask1 > 0).astype(bool)
+        ref = (mask2 > 0).astype(bool)
 
         pred_sum = pred.sum()
         ref_sum = ref.sum()
@@ -101,21 +80,32 @@ class SegmentationMetricsWidget(QWidget):
 
         dsc = 2.0 * np.logical_and(pred, ref).sum() / (pred_sum + ref_sum)
 
+        # If no spacing is provided, assume isotropic 1.0
+        if spacing_xyz is None:
+            spacing_xyz = (1.0, 1.0, 1.0) if pred.ndim == 3 else (1.0, 1.0)
+
+        ref_img = sitk.GetImageFromArray(ref.astype(np.uint8))
+        ref_img.SetSpacing(spacing_xyz)
+        ref_surface = sitk.LabelContour(ref_img)
+        ref_distance = sitk.Abs(
+            sitk.SignedMaurerDistanceMap(ref_img, squaredDistance=False, useImageSpacing=True)
+        )
+        ref_surface_arr = sitk.GetArrayFromImage(ref_surface) > 0
+        ref_distance_arr = sitk.GetArrayFromImage(ref_distance)
+
         pred_img = sitk.GetImageFromArray(pred.astype(np.uint8))
         pred_img.SetSpacing(spacing_xyz)
-
         pred_surface = sitk.LabelContour(pred_img)
         pred_distance = sitk.Abs(
             sitk.SignedMaurerDistanceMap(pred_img, squaredDistance=False, useImageSpacing=True)
         )
-
         pred_surface_arr = sitk.GetArrayFromImage(pred_surface) > 0
         pred_distance_arr = sitk.GetArrayFromImage(pred_distance)
 
         surface_distances = np.concatenate(
             [
-                self._reference_distance_data[pred_surface_arr],
-                pred_distance_arr[self._reference_surface_data],
+                ref_distance_arr[pred_surface_arr],
+                pred_distance_arr[ref_surface_arr],
             ]
         )
         if surface_distances.size == 0:
@@ -124,35 +114,44 @@ class SegmentationMetricsWidget(QWidget):
         hd95 = float(np.percentile(surface_distances, 95))
         return float(dsc), hd95
 
-    def _get_current_segmentation_layer(self):
-        segmentation_layer = get_value(self.segmentation_layer_select)
-        if segmentation_layer is None:
+    def _get_layer_1(self):
+        """Get the first selected layer."""
+        layer_name = get_value(self.layer_select_1)
+        if layer_name is None:
             return None
-        segmentation_layer = segmentation_layer[0]
-        print(f"Selected segmentation layer: {segmentation_layer}")
-        return self._viewer.layers[segmentation_layer] if segmentation_layer in self._viewer.layers else None
+        layer_name = layer_name[0]
+        return self._viewer.layers[layer_name] if layer_name in self._viewer.layers else None
+
+    def _get_layer_2(self):
+        """Get the second selected layer."""
+        layer_name = get_value(self.layer_select_2)
+        if layer_name is None:
+            return None
+        layer_name = layer_name[0]
+        return self._viewer.layers[layer_name] if layer_name in self._viewer.layers else None
+
+    def on_layers_changed(self):
+        """Called when either layer selection changes."""
+        self.update_segmentation_metrics()
 
     def update_segmentation_metrics(self):
-        if (
-            self._reference_mask_data is None
-            or self._reference_mask_spacing is None
-            or self._reference_surface_data is None
-            or self._reference_distance_data is None
-        ):
+        """Compute and display metrics between the two selected layers."""
+        layer1 = self._get_layer_1()
+        layer2 = self._get_layer_2()
+
+        if layer1 is None or layer2 is None:
             self.metrics_label.setText("DSC: --\nHD95: --")
             return
 
-        segmentation_layer = self._get_current_segmentation_layer()
-        if segmentation_layer is None:
-            self.metrics_label.setText("DSC: --\nHD95: --")
-            return
+        data1 = np.asarray(layer1.data)
+        data2 = np.asarray(layer2.data)
 
-        segmentation = np.asarray(segmentation_layer.data) > 0
-        if segmentation.shape != self._reference_mask_data.shape:
+        if data1.shape != data2.shape:
             self.metrics_label.setText("DSC: n/a\nHD95: n/a")
             return
 
-        dsc, hd95 = self._compute_dsc_hd95(segmentation)
+        # Compute metrics between layers where values > 0
+        dsc, hd95 = self._compute_dsc_hd95(data1, data2)
         hd95_text = "n/a" if np.isnan(hd95) else f"{hd95:.2f} mm"
         self.metrics_label.setText(f"DSC: {dsc:.4f}\nHD95: {hd95_text}")
         

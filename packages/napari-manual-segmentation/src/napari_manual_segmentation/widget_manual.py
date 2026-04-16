@@ -26,6 +26,7 @@ from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer, FixedIma
 from .utils.utils import ColorMapper, determine_layer_index
 from .utils.affine import is_orthogonal
 from napari.utils.transforms import Affine
+from napari.utils.events import EventEmitter, EmitterGroup, Event, EventedList
 
 class ManualSegmentationWidget(QWidget):
     def __init__(self, viewer: Viewer):
@@ -42,6 +43,13 @@ class ManualSegmentationWidget(QWidget):
         self.object_index = 0
 
         self._viewer.layers.selection.events.active.connect(self.on_layer_selected)
+
+        # Define events
+        self.events = EmitterGroup(self,
+            next_object = Event,
+            reset_interactions = Event,
+        )
+
         self.build_gui()
 
     def build_gui(self):
@@ -77,7 +85,7 @@ class ManualSegmentationWidget(QWidget):
             shortcut="R",
         )
         self.reset_interaction_button.setDisabled(True)
-        self.reset_button = setup_iconbutton(
+        self.next_object_button = setup_iconbutton(
             _layout,
             "New Object",
             "step_right",
@@ -86,7 +94,7 @@ class ManualSegmentationWidget(QWidget):
             tooltips="Keep current segmentation and go to the next object - press M",
             shortcut="M",
         )
-        self.reset_button.setDisabled(True)
+        self.next_object_button.setDisabled(True)
     
     def on_image_selected(self):
         """Reset the current sessions interaction but keep the session itself"""
@@ -95,7 +103,7 @@ class ManualSegmentationWidget(QWidget):
             self.object_index = 0
         self.init_button.setDisabled(False)
         self.reset_interaction_button.setDisabled(True)
-        self.reset_button.setDisabled(True)
+        self.next_object_button.setDisabled(True)
 
     # Layer Handling
     def add_label_layer(self, data, name) -> Labels:
@@ -246,7 +254,7 @@ class ManualSegmentationWidget(QWidget):
         # disable init button
         self.init_button.setDisabled(True)
         self.reset_interaction_button.setDisabled(False)
-        self.reset_button.setDisabled(False)
+        self.next_object_button.setDisabled(False)
 
     def on_reset_interactions(self):
         """Reset only the current interaction"""
@@ -254,6 +262,7 @@ class ManualSegmentationWidget(QWidget):
             if self.labels_layer in self._viewer.layers:
                 self._viewer.layers.remove(self.labels_layer)
             self.labels_layer = None
+        self.events.reset_interactions()
 
     def on_layer_selected(self, *args, **kwargs) -> None:
         _layer = self._viewer.layers.selection.active
@@ -280,6 +289,7 @@ class ManualSegmentationWidget(QWidget):
 
         # set active
         self._viewer.layers.selection.active = self.labels_layer
+        self.events.next_object()
     
     def hideEvent(self, event):
         if self.allow_close:
@@ -296,6 +306,6 @@ class ManualSegmentationWidget(QWidget):
     def showEvent(self, event):
         self.init_button.setDisabled(False)
         self.reset_interaction_button.setDisabled(True)
-        self.reset_button.setDisabled(True)
+        self.next_object_button.setDisabled(True)
         #self.on_init()
     
