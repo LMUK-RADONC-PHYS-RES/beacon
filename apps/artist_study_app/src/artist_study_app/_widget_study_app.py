@@ -798,6 +798,12 @@ class StudyAppFullWidget(QWidget):
             'timestamp': time.time()
         })
 
+        # copy the last added layer as model output
+        object_index = self.automatic_segmentation_widget.object_index
+        _name = f"Segmentation {object_index}"
+        segmentation_layer = self._viewer.layers[_name]
+        self.automatic_segmentation_widget.add_preview_label_layer(segmentation_layer.data, f"Prediction {object_index}")
+
     def _on_nninteractive_reset_interactions(self):
         """Handler for nnInteractive widget reset_interactions event."""
         self.edit_log.record({
