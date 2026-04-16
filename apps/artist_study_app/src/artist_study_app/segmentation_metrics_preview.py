@@ -41,6 +41,9 @@ class SegmentationMetricsWidget(QWidget):
         self.edit_log = edit_log
 
         layout = QVBoxLayout(self)
+        setup_label(layout, "Select comparison layer:")
+        self.segmentation_layer_select = setup_layerselect(layout, viewer, Labels, function=self.on_segmentation_layer_changed)
+
         self.metrics_label = QLabel("DSC: --\nHD95: --")
         layout.addWidget(self.metrics_label)
 
@@ -81,6 +84,9 @@ class SegmentationMetricsWidget(QWidget):
     def stop_updates(self):
         self.metrics_timer.stop()
 
+    def on_segmentation_layer_changed(self):
+        self.update_segmentation_metrics()
+
     def _compute_dsc_hd95(self, prediction_mask: np.ndarray):
         pred = prediction_mask.astype(bool)
         ref = self._reference_mask_data
@@ -119,22 +125,12 @@ class SegmentationMetricsWidget(QWidget):
         return float(dsc), hd95
 
     def _get_current_segmentation_layer(self):
-        active_layer = self._viewer.layers.selection.active
-        if (
-            isinstance(active_layer, Labels)
-            and active_layer is not self._guidance_layer
-            and getattr(active_layer, "editable", True)
-        ):
-            return active_layer
-
-        for layer in reversed(self._viewer.layers):
-            if (
-                isinstance(layer, Labels)
-                and layer is not self._guidance_layer
-                and getattr(layer, "editable", True)
-            ):
-                return layer
-        return None
+        segmentation_layer = get_value(self.segmentation_layer_select)
+        if segmentation_layer is None:
+            return None
+        segmentation_layer = segmentation_layer[0]
+        print(f"Selected segmentation layer: {segmentation_layer}")
+        return self._viewer.layers[segmentation_layer] if segmentation_layer in self._viewer.layers else None
 
     def update_segmentation_metrics(self):
         if (
