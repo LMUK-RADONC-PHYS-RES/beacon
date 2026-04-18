@@ -32,7 +32,7 @@ class SinglePointLayer(nnI_SinglePointLayer):
             super()._add(*args, **kwargs)
 
     def _snapshot_data(self) -> np.ndarray:
-        return (np.asarray(self.data).copy(), list(self.selected_data), self.prompt_index, self.face_color.copy(), self.border_color.copy(), self.size.copy())
+        return (np.asarray(self.data).copy(), self.selected_data.copy(), self.prompt_index, self.face_color.copy(), self.border_color.copy(), self.size.copy())
 
     def _reset_history(self, event: Event | None = None) -> None:
         self._undo_history = deque(maxlen=self._history_limit)
@@ -62,7 +62,7 @@ class SinglePointLayer(nnI_SinglePointLayer):
         if self._block_history:
             self._staged_history.append(value)
         else:
-            self._append_to_undo_history(value)
+            self._undo_history.append(value)
 
     def _on_data_change(self, event=None):
         if hasattr(event, "action") and event.action in ["adding", "removing", "changing"]:
@@ -97,11 +97,12 @@ class SinglePointLayer(nnI_SinglePointLayer):
             previous_data, next_data = history_item
             restored = previous_data if undoing else next_data
             self.data = restored[0].copy()
-            self.selected_data = set()
+            self.selected_data = set() #set(copy.copy(restored[1]))
+            self.prompt_index = restored[2]
             if restored[0].shape[0] > 0:
-                self.face_color = restored[2].copy()
-                self.border_color = restored[3].copy()
-                self.size = restored[4].copy()
+                self.face_color = restored[3].copy()
+                self.border_color = restored[4].copy()
+                self.size = restored[5].copy()
         finally:
             self._is_restoring_history = False
         self._last_history_state = self._snapshot_data()
