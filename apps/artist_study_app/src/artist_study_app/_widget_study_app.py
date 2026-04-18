@@ -606,11 +606,29 @@ class StudyAppFullWidget(QWidget):
         viewer = self._viewer
 
         def set_axial_view():
+            interpolation2d = self.image_layer.interpolation2d if self.image_layer is not None else self.study_protocol.get("interpolation", "nearest") 
             viewer.dims.order = (0,1,2)
+            
+            if self.image_layer is not None:
+                self.image_layer.interpolation2d = "linear" if interpolation2d != "linear" else "nearest"
+                self.image_layer.interpolation2d = interpolation2d
+                self.image_layer.refresh()
         def set_coronal_view():
+            interpolation2d = self.image_layer.interpolation2d if self.image_layer is not None else self.study_protocol.get("interpolation", "nearest") 
             viewer.dims.order = (1,0,2)
+            if self.image_layer is not None:
+                self.image_layer.interpolation2d = "linear" if interpolation2d != "linear" else "nearest"
+                self.image_layer.interpolation2d = interpolation2d
+                self.image_layer.refresh()
+
         def set_saggital_view():
+            interpolation2d = self.image_layer.interpolation2d if self.image_layer is not None else self.study_protocol.get("interpolation", "nearest") 
             viewer.dims.order = (2,0,1)
+            if self.image_layer is not None:
+                self.image_layer.interpolation2d = "linear" if interpolation2d != "linear" else "nearest"
+                self.image_layer.interpolation2d = interpolation2d
+                self.image_layer.refresh()
+
         axial_button = QPushButton()
         axial_button.setText("A")
         axial_button.clicked.connect(set_axial_view)
