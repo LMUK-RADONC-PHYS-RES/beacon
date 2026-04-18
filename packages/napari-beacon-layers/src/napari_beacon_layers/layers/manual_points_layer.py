@@ -29,7 +29,7 @@ class ManualPointsLayer(Points):
         self.events.size.connect(self.on_size_change)
 
     def _snapshot_data(self) -> np.ndarray:
-        return (np.asarray(self.data).copy(), list(self.selected_data), self.face_color.copy(), self.border_color.copy(), self.size.copy())
+        return (np.asarray(self.data).copy(), list(self.selected_data.copy()), self.face_color.copy(), self.border_color.copy(), self.size.copy())
 
     def _reset_history(self, event: Event | None = None) -> None:
         self._undo_history = deque(maxlen=self._history_limit)
@@ -59,7 +59,7 @@ class ManualPointsLayer(Points):
         if self._block_history:
             self._staged_history.append(value)
         else:
-            self._append_to_undo_history(value)
+            self._undo_history.append(value)
 
     def _on_data_change(self, event=None):
         if hasattr(event, "action") and event.action in ["adding", "removing", "changing"]:
@@ -95,7 +95,7 @@ class ManualPointsLayer(Points):
             previous_data, next_data = history_item
             restored = previous_data if undoing else next_data
             self.data = restored[0].copy()
-            self.selected_data = set(restored[1])
+            self.selected_data = set() #set(copy.copy(restored[1]))
             if restored[0].shape[0] > 0:
                 self.face_color = restored[2].copy()
                 self.border_color = restored[3].copy()
