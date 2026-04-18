@@ -1,7 +1,8 @@
 from qtpy.QtWidgets import QGroupBox
 
 from napari_nninteractive import nnInteractiveWidget
-from napari_nninteractive.layers.point_layer import SinglePointLayer
+#from napari_nninteractive.layers.point_layer import SinglePointLayer
+from napari_nninteractive_minimal.single_point_layer import SinglePointLayer
 
 from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer, FixedImageLayer
 from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice, crop_and_pad_nd
