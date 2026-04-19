@@ -8,7 +8,7 @@ import copy
 from napari_nninteractive.layers.point_layer import SinglePointLayer as nnI_SinglePointLayer
 
 from napari._qt.layer_controls.qt_layer_controls_container import layer_to_controls
-from napari_nninteractive_minimal.single_point_control import CustomQtSinglePointControls
+from napari_nninteractive.controls.point_controls import CustomQtPointsControls
 
 class SinglePointLayer(nnI_SinglePointLayer):
     """Extended SinglePointLayer from napari-nninteractive with keyboard-driven undo/redo history.
@@ -122,7 +122,7 @@ class SinglePointLayer(nnI_SinglePointLayer):
 
 
 # register the custom layer controls
-layer_to_controls[SinglePointLayer] = CustomQtSinglePointControls
+layer_to_controls[SinglePointLayer] = CustomQtPointsControls
 
 @SinglePointLayer.bind_key(KeyMod.CtrlCmd | KeyCode.KeyZ, overwrite=True)
 def undo(layer: SinglePointLayer) -> None:

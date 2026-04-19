@@ -134,8 +134,8 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         point_layer.events.finished.connect(self.on_interaction)
         self._viewer.add_layer(point_layer)
     
-    def add_interaction(self) -> None:
-        super().add_interaction_layer()
+    def add_interaction(self,*args,**kwargs) -> None:
+        super().add_interaction(*args,**kwargs)
         self.events.add_interaction()
 
     def on_reset_interactions(self) -> None:
