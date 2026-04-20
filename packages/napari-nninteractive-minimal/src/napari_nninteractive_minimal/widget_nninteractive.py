@@ -1,8 +1,8 @@
 from qtpy.QtWidgets import QGroupBox
 
 from napari_nninteractive import nnInteractiveWidget
-#from napari_nninteractive.layers.point_layer import SinglePointLayer
-from napari_nninteractive_minimal.single_point_layer import SinglePointLayer
+from napari_nninteractive.layers.point_layer import SinglePointLayer
+#from napari_nninteractive_minimal.single_point_layer import SinglePointLayer
 
 from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer, FixedImageLayer
 from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice, crop_and_pad_nd
@@ -136,7 +136,7 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
     
     def add_interaction(self,*args,**kwargs) -> None:
         super().add_interaction(*args,**kwargs)
-        self.events.add_interaction()
+        #self.events.add_interaction()
 
     def on_reset_interactions(self) -> None:
         super().on_reset_interactions()
