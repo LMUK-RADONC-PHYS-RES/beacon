@@ -546,6 +546,7 @@ class StudyAppFullWidget(QWidget):
                 self.hide()
                 self.close()
                 self._viewer.window.remove_dock_widget(self)
+                self.deleteLater()
                 
         self.update_task_counter()
         
@@ -663,36 +664,6 @@ class StudyAppFullWidget(QWidget):
             padding: 0px;
             """)
         viewer.window._qt_viewer._viewerButtons.layout().insertWidget(-1,axial_button)
-
-        def show_multi_view():
-
-            if hasattr(self, 'multi_viewer_widget'):
-                viewer.window.remove_dock_widget(self.multi_viewer_widget)
-                #self.multi_viewer_widget.close()
-                del self.multi_viewer_widget
-            else:
-                self.multi_viewer_widget = MultipleViewerWidget(viewer=viewer, orientation=Qt.Orientation.Vertical)
-                viewer.window.add_dock_widget(
-                    self.multi_viewer_widget, name="Multi-View", area="right"
-                )
-                self.multi_viewer_widget.parent()._close_btn = False
-                self.multi_viewer_widget.parent().title.float_button.setHidden(True)
-
-                #self.multi_viewer_widget.setParent(self, Qt.Window)
-                #self.multi_viewer_widget.setWindowFlags(self.multi_viewer_widget.windowFlags() | Qt.Tool)
-                #self.multi_viewer_widget.show()
-
-        #axial_button = QPushButton()
-        #axial_button.setText("M")
-        #axial_button.clicked.connect(show_multi_view)
-        #axial_button.setStyleSheet("""
-        #    min-width : 28px;
-        #    max-width : 28px;
-        #    min-height : 28px;
-        #    max-height : 28px;
-        #    padding: 0px;
-        #    """)
-        #viewer.window._qt_viewer._viewerButtons.layout().insertWidget(-1,axial_button)
 
         # Hide viewer buttons since we offer our own functionality
         viewer.window._qt_viewer._viewerButtons.rollDimsButton.setHidden(True)

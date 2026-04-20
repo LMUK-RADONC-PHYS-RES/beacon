@@ -48,8 +48,7 @@ class SegmentationMetricsWidget(QWidget):
             self.layer_select_2
         ], stretch=[0,1])
 
-        self.metrics_label = QLabel("DSC: --\nHD95: --")
-        layout.addWidget(self.metrics_label)
+        self.metrics_label = setup_label(layout, "DSC: --\nHD95: --")
 
         self.metrics_timer = QTimer(self)
         self.metrics_timer.setInterval(update_interval_ms)
@@ -167,3 +166,19 @@ class SegmentationMetricsWidget(QWidget):
                     'hd95': hd95,
                 }
             })
+
+    def closeEvent(self, event=None):
+        self.stop_updates()
+        self._viewer.layers.events.inserted.disconnect(self.layer_select_1._update)
+        self._viewer.layers.events.removed.disconnect(self.layer_select_1._update)
+        for layer in self.layer_select_1.layer_names:
+            layer.events.name.disconnect(self.layer_select_1._update)
+        self.layer_select_1.close()
+        self.layer_select_1.deleteLater()
+
+        self._viewer.layers.events.inserted.disconnect(self.layer_select_2._update)
+        self._viewer.layers.events.removed.disconnect(self.layer_select_2._update)
+        for layer in self.layer_select_2.layer_names:
+            layer.events.name.disconnect(self.layer_select_2._update)
+        self.layer_select_2.close()
+        self.layer_select_2.deleteLater()

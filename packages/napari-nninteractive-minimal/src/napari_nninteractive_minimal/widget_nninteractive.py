@@ -176,3 +176,23 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         self._clear_layers()
         self.prompt_button._uncheck()
         self.prompt_button._check(0)
+
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        self._viewer.layers.events.inserted.disconnect(self.image_selection._update)
+        self._viewer.layers.events.removed.disconnect(self.image_selection._update)
+        for layer in self.image_selection.layer_names:
+            layer.events.name.disconnect(self.image_selection._update)
+        self.image_selection.close()
+        self.image_selection.deleteLater()
+
+        
+        self._viewer.layers.events.inserted.disconnect(self.label_for_init._update)
+        self._viewer.layers.events.removed.disconnect(self.label_for_init._update)
+        for layer in self.label_for_init.layer_names:
+            layer.events.name.disconnect(self.label_for_init._update)
+        self.label_for_init.close()
+        self.label_for_init.deleteLater()
+
+        self._viewer.layers.selection.events.active.disconnect(self.on_layer_selected)
+        self._viewer.dims.events.order.disconnect(self.on_axis_change)

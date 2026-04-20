@@ -18,9 +18,11 @@ from qtpy.QtWidgets import (
     QPushButton,
     QWidget
 )
+from napari.layers.labels._labels_constants import Mode
 from qtpy.QtCore import Qt  # type: ignore[attr-defined]
 from napari_toolkit.containers import setup_scrollarea, setup_vcollapsiblegroupbox, setup_vgroupbox, setup_vscrollarea
-from napari_toolkit.widgets import setup_iconbutton, setup_label, setup_layerselect
+from napari_toolkit.widgets import setup_iconbutton, setup_label
+from .layer_select import QLayerSelect, setup_layerselect
 from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer, FixedImageLayer
 
 from .utils.utils import ColorMapper, determine_layer_index
@@ -127,7 +129,7 @@ class ManualSegmentationWidget(QWidget):
         )
         label_layer._source = self.session_cfg["source"]
         label_layer.contour = 1
-        label_layer.mode = "paint"
+        label_layer.mode = Mode.PAINT
 
         self._viewer.add_layer(label_layer)
         return label_layer
@@ -300,6 +302,12 @@ class ManualSegmentationWidget(QWidget):
     def closeEvent(self, event):
         if self.allow_close:
             event.accept()
+            self._viewer.layers.events.inserted.disconnect(self.image_selection._update)
+            self._viewer.layers.events.removed.disconnect(self.image_selection._update)
+            for layer in self.image_selection.layer_names:
+                layer.events.name.disconnect(self.image_selection._update)
+            self.image_selection.close()
+            self.image_selection.deleteLater()
         else:
             event.ignore()
 
