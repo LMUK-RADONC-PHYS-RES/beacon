@@ -21,8 +21,7 @@ from qtpy.QtWidgets import (
 from napari.layers.labels._labels_constants import Mode
 from qtpy.QtCore import Qt  # type: ignore[attr-defined]
 from napari_toolkit.containers import setup_scrollarea, setup_vcollapsiblegroupbox, setup_vgroupbox, setup_vscrollarea
-from napari_toolkit.widgets import setup_iconbutton, setup_label
-from .layer_select import QLayerSelect, setup_layerselect
+from napari_toolkit.widgets import setup_iconbutton, setup_label, setup_layerselect
 from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer, FixedImageLayer
 
 from .utils.utils import ColorMapper, determine_layer_index
