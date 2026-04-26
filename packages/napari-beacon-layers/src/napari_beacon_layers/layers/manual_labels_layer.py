@@ -10,6 +10,9 @@ from napari._qt.layer_controls.qt_layer_controls_container import layer_to_contr
 from napari_beacon_layers.controls.manual_labels_control import CustomQtManualLabelsControls
 from napari.utils.notifications import show_info, show_warning, show_error, show_console_notification
 
+from napari.layers.labels._labels_mouse_bindings import draw
+from napari.layers.labels._labels_constants import Mode
+
 import SimpleITK as sitk
 from scipy.ndimage import binary_fill_holes
 from scipy.interpolate import interpn
@@ -42,7 +45,7 @@ class ManualLabelsLayer(Labels):
 
     def __init__(self, data, *args, **kwargs):
         super().__init__(data, *args, **kwargs)
-        self.mode = 'paint'  # default mode is paint
+        self.mode = Mode.PAINT  # default mode is paint
 
         self._autofill = True
         self.events.add(autofill=Event) 

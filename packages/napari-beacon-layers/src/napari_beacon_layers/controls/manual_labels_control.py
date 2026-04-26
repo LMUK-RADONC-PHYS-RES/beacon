@@ -18,6 +18,7 @@ from napari._qt.layer_controls.widgets.qt_widget_controls_base import (
 )
 from napari._qt.utils import attr_to_settr
 from napari.layers import Labels
+from napari.layers.labels._labels_constants import Mode
 from napari.layers.labels._labels_utils import get_dtype
 from napari.utils._dtype import get_dtype_limits
 from napari.utils.translations import trans
@@ -150,17 +151,19 @@ class CustomQtManualLabelsControls(QtLabelsControls):
         @layer.bind_key('Shift')
         def quick_switch_tool(viewer):
             print("quick_switch_tool")
-            if layer.mode != "paint":
+            if layer.mode != Mode.PAINT and layer.mode != Mode.ERASE:
                 return
             # on press
             # switch paint/erase mode
-            layer.mode = 'erase'
+            original_mode = layer.mode
+            target_mode = Mode.ERASE if layer.mode == Mode.PAINT else Mode.PAINT
+            layer.mode = target_mode
             yield
             # on release
             # switch paint/erase mode back
-            # only switch back to paint if we are still in erase mode, otherwise keep the current mode (e.g. if user switched to another mode while holding shift)
-            if layer.mode == 'erase': 
-                layer.mode = 'paint'
+            # only switch back to original mode if we are still in target mode, otherwise keep the current mode (e.g. if user switched to another mode while holding shift)
+            if layer.mode == target_mode:
+                layer.mode = original_mode
 
         # shortcuts for increasing/decreasing brush size with shift + plus/minus
         @layer.bind_key('Plus', overwrite=True)
@@ -182,3 +185,4 @@ class CustomQtManualLabelsControls(QtLabelsControls):
             self._shape_based_interpolation_control = QtShapeBasedInterpolationControl(self, layer)
             self._add_widget_controls(self._shape_based_interpolation_control)
 
+        self.paint_button.setChecked(True)
