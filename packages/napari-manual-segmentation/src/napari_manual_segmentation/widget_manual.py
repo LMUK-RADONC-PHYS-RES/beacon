@@ -39,6 +39,7 @@ class ManualSegmentationWidget(QWidget):
         self.session_cfg = None
 
         self.allow_close = False
+        self.allow_next_object = False
 
         self.colormap = ColorMapper(49, seed=0.5, background_value=0)
         self.object_index = 0
@@ -255,14 +256,14 @@ class ManualSegmentationWidget(QWidget):
         # disable init button
         self.init_button.setDisabled(True)
         self.reset_interaction_button.setDisabled(False)
-        self.next_object_button.setDisabled(False)
+        if self.allow_next_object:
+            self.next_object_button.setDisabled(False)
 
     def on_reset_interactions(self):
         """Reset only the current interaction"""
         if self.labels_layer is not None:
-            if self.labels_layer in self._viewer.layers:
-                self._viewer.layers.remove(self.labels_layer)
-            self.labels_layer = None
+            self.labels_layer.data = np.zeros_like(self.labels_layer.data)
+            self.labels_layer.refresh()
         self.events.reset_interactions()
 
     def on_layer_selected(self, *args, **kwargs) -> None:

@@ -3,6 +3,7 @@ from qtpy.QtWidgets import QGroupBox
 from napari_nninteractive import nnInteractiveWidget
 from napari_nninteractive.layers.point_layer import SinglePointLayer
 #from napari_nninteractive_minimal.single_point_layer import SinglePointLayer
+from napari_nninteractive.utils.utils import ColorMapper, determine_layer_index
 
 from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer, FixedImageLayer
 from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice, crop_and_pad_nd
@@ -29,13 +30,16 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         self.auto_refine.setHidden(True)
         self.auto_refine.parent().setHidden(True)
         self.propagate_ckbx.setHidden(True)
-        self.run_ckbx.parent().setHidden(True)
+        #self.run_ckbx.parent().setHidden(True)
         self.export_button.parent().setHidden(True)
 
         self._scribble_brush_size = 2
 
         self.label_layer_name = "nnInteractive - Preview Layer"
         self.semantic_layer_name = "nnInteractive - Preview Layer"
+
+        self.prediction_colormap = ColorMapper(49, seed=0.75, background_value=0)
+
         self.preview_layer_edited = False
         # add listener that on manual update of the preview label layer, the point layer is updated as well
         def on_interaction(event):
@@ -110,7 +114,6 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         label_layer._source = self.session_cfg["source"]
         label_layer.colormap = self.colormap[self.object_index]
 
-
         self._viewer.add_layer(label_layer)
 
 
@@ -153,9 +156,15 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         # Rename the current layer and add a new one
         label_layer = self._viewer.layers[self.label_layer_name]
         if not self.instance_aggregation_ckbx.isChecked():
+            
+            _name = f"Prediction {self.object_index+1}"
+            self.add_preview_label_layer(label_layer.data.copy(), _name)
+            self._viewer.layers[_name].colormap = self.prediction_colormap[(self.object_index+1) % 48]
+            self._viewer.layers[_name].visible = False
 
             _name = f"Segmentation {self.object_index+1}"
             self.add_label_layer(label_layer.data.copy(), _name)
+
             self._viewer.layers[_name].colormap = self.colormap[self.object_index]
 
         else:

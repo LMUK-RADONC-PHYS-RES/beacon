@@ -289,8 +289,16 @@ class StudyAppFullWidget(QWidget):
             self._viewer.layers.remove(self.guidance_layer)
             self.guidance_layer = None
 
+        #print([layer.name for layer in self._viewer.layers])
         # remove other labels layers
         for layer in self._viewer.layers:
+            #print(layer.name, type(layer), isinstance(layer, Labels))
+            if isinstance(layer, Labels):
+                self._viewer.layers.remove(layer)
+        # second round to be sure (sometimes some layers are not removed in the first round for some reason)
+        #print([layer.name for layer in self._viewer.layers])
+        for layer in self._viewer.layers:
+            #print(layer.name, type(layer), isinstance(layer, Labels))
             if isinstance(layer, Labels):
                 self._viewer.layers.remove(layer)
 
@@ -439,7 +447,9 @@ class StudyAppFullWidget(QWidget):
 
         if self.study_protocol.get("disable_next_object_after_first_use", False):
             if self.manual_segmentation_widget is not None:
-                self.manual_segmentation_widget.next_object_button.setEnabled(True)
+                self.manual_segmentation_widget.next_object_button.setEnabled(False)
+                self.manual_segmentation_widget.allow_next_object = False
+
             if self.automatic_segmentation_widget is not None and self.automatic_segmentation_widget.session is not None:
                 # In the nnInteractiveWidget base class, the "Next Object" button is named reset_button
                 self.automatic_segmentation_widget.reset_button.setEnabled(True)
@@ -798,12 +808,6 @@ class StudyAppFullWidget(QWidget):
             'event_type': 'nninteractive_next_object',
             'timestamp': time.time()
         })
-
-        # copy the last added layer as model output
-        object_index = self.automatic_segmentation_widget.object_index
-        _name = f"Segmentation {object_index}"
-        segmentation_layer = self._viewer.layers[_name]
-        self.automatic_segmentation_widget.add_preview_label_layer(segmentation_layer.data, f"Prediction {object_index}")
 
         if self.study_protocol.get("disable_next_object_after_first_use", False) and not self._next_object_used:
             self._next_object_used = True
