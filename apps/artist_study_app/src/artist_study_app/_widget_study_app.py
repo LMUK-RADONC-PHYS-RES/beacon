@@ -435,6 +435,15 @@ class StudyAppFullWidget(QWidget):
         
         self.update_task_counter()
 
+        self._next_object_used = False
+
+        if self.study_protocol.get("disable_next_object_after_first_use", False):
+            if self.manual_segmentation_widget is not None:
+                self.manual_segmentation_widget.next_object_button.setEnabled(True)
+            if self.automatic_segmentation_widget is not None and self.automatic_segmentation_widget.session is not None:
+                # In the nnInteractiveWidget base class, the "Next Object" button is named reset_button
+                self.automatic_segmentation_widget.reset_button.setEnabled(True)
+
         # reload edit log if existing
         with self.edit_log.events.cleared.blocker():
             self.edit_log.clear()
@@ -770,6 +779,9 @@ class StudyAppFullWidget(QWidget):
             'event_type': 'manual_segmentation_next_object',
             'timestamp': time.time()
         })
+        if self.study_protocol.get("disable_next_object_after_first_use", False) and not self._next_object_used:
+            self._next_object_used = True
+            self.manual_segmentation_widget.next_object_button.setDisabled(True)
 
     def _on_manual_segmentation_reset_interactions(self):
         """Handler for manual segmentation widget reset_interactions event."""
@@ -792,6 +804,11 @@ class StudyAppFullWidget(QWidget):
         _name = f"Segmentation {object_index}"
         segmentation_layer = self._viewer.layers[_name]
         self.automatic_segmentation_widget.add_preview_label_layer(segmentation_layer.data, f"Prediction {object_index}")
+
+        if self.study_protocol.get("disable_next_object_after_first_use", False) and not self._next_object_used:
+            self._next_object_used = True
+            # In the nnInteractiveWidget base class, the "Next Object" button is named reset_button
+            self.automatic_segmentation_widget.reset_button.setDisabled(True)
 
     def _on_nninteractive_reset_interactions(self):
         """Handler for nnInteractive widget reset_interactions event."""
