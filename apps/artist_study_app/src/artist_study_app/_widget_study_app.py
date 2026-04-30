@@ -581,7 +581,7 @@ class StudyAppFullWidget(QWidget):
                     _counter = interval_seconds
         
         thread = quicksave_periodically()
-        thread.yielded.connect(self.quicksave)
+        #thread.yielded.connect(self.quicksave)
         thread.start()
     
     def quicksave(self):
