@@ -70,6 +70,11 @@ class ManualLabelsLayer(Labels):
 
     def apply_autofill(self):
         viewer = napari.current_viewer()
+
+        if viewer.dims.order != (0, 1, 2):
+            # Autofill only works on 3D data with (z,y,x) ordering.
+            return
+
         # get current view
         transposed_layer_data = np.transpose(self.data.copy(), viewer.dims.order)
         # get current slice in that view
