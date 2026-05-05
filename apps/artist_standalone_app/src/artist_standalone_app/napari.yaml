@@ -1,0 +1,13 @@
+name: artist_standalone_app
+display_name: ARTIST Standalone App
+visibility: hidden
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "artist_standalone_app.StandaloneAppWidget"
+      title: "ARTIST-Standalone"
+      python_name: "artist_standalone_app:StandaloneAppWidget"
+
+  widgets:
+    - command: "artist_standalone_app.StandaloneAppWidget"
+      display_name: ARTIST-Standalone

@@ -20,7 +20,7 @@ from napari.utils.notifications import show_info, show_warning, show_error, show
 from napari import Viewer
 from napari.layers import Labels, Shapes, Points, Image, Layer
 from napari_toolkit.containers import setup_scrollarea, setup_vcollapsiblegroupbox, setup_vgroupbox, setup_vscrollarea
-from napari_toolkit.containers.boxlayout import hstack
+from napari_toolkit.containers.boxlayout import stack, QHBoxLayout
 from napari_toolkit.utils import set_value
 from napari_toolkit.data_structs import setup_list
 from napari_toolkit.utils.widget_getter import get_value
@@ -82,7 +82,9 @@ class StudyAppWidget(QWidget):
         # initialize
         physicsian_id = get_value(self.user_id_input)
         study_protocol_path = get_value(self.file_select)
-        widget = StudyAppFullWidget(self._viewer, physicsian_id, study_protocol_path)
+        with open(study_protocol_path, 'r') as f:
+            study_protocol = safe_load(f)
+        widget = StudyAppFullWidget(self._viewer, physicsian_id, study_protocol)
         self._viewer.window.add_dock_widget(
             widget, name="ARTIST study", area="left"
         )
@@ -102,18 +104,14 @@ class StudyAppWidget(QWidget):
         pass
 
 class StudyAppFullWidget(QWidget):
-    def __init__(self, viewer: Viewer, user_id, study_protocol_path):
+    def __init__(self, viewer: Viewer, user_id, study_protocol):
         super().__init__()
         self._viewer = viewer
-        
-        self.user_id = user_id
-        self.study_protocol_path = study_protocol_path
-        
-        self.colormap = ColorMapper(49, seed=0.5, background_value=0)
 
-        # read study
-        with open(study_protocol_path, 'r') as f:
-            self.study_protocol = safe_load(f)
+        self.user_id = user_id
+        self.study_protocol = study_protocol
+
+        self.colormap = ColorMapper(49, seed=0.5, background_value=0)
         
         study_methods = self.study_protocol.get("methods", [])
         study_cases = self.study_protocol.get("cases", [])
@@ -131,6 +129,7 @@ class StudyAppFullWidget(QWidget):
                 os.makedirs(output_folder, exist_ok=True)
 
         self.approve_mode = self.study_protocol.get("approve_mode", "Next")
+        self._reopen_on_close = True
         # cathesian product of methods and cases
         self.study_tasks = []
 
@@ -202,7 +201,9 @@ class StudyAppFullWidget(QWidget):
             function=on_task_change
         )
 
-        hstack(_layout, [ 
+        self._navigation_widget = QWidget()
+        self._navigation_layout = QHBoxLayout(self._navigation_widget)
+        stack(self._navigation_layout, [
             setup_iconbutton(
                 _layout, "Previous", "step_left", self._viewer.theme, self.load_previous_task),
             setup_iconbutton(
@@ -646,7 +647,7 @@ class StudyAppFullWidget(QWidget):
             get_interpolation=lambda: self.study_protocol.get("interpolation", "nearest"),
         )
 
-        prev_handler = viewer.window._qt_viewer._layers.keyPressEvent
+        self._prev_layer_keyPressEvent_handler = self._viewer.window._qt_viewer._layers.keyPressEvent
 
         def _filtered_key_press(e):
             if e is None:
@@ -654,14 +655,13 @@ class StudyAppFullWidget(QWidget):
             if e.key() in (Qt.Key.Key_Backspace, Qt.Key.Key_Delete):
                 e.ignore()
             else:
-                prev_handler(e)
+                self._prev_layer_keyPressEvent_handler(e)
 
-        viewer.window._qt_viewer._layers.keyPressEvent = _filtered_key_press
-        self._prev_layer_keyPressEvent_handler = prev_handler
+        self._viewer.window._qt_viewer._layers.keyPressEvent = _filtered_key_press
 
     def revert_napari_ui(self):
         _revert_napari_ui(self._viewer)
-        viewer.window._qt_viewer._layers.keyPressEvent = self._prev_layer_keyPressEvent_handler
+        self._viewer.window._qt_viewer._layers.keyPressEvent = self._prev_layer_keyPressEvent_handler
         del self._prev_layer_keyPressEvent_handler
 
     def showEvent(self, event):
@@ -701,15 +701,15 @@ class StudyAppFullWidget(QWidget):
             
         for shortcut in self.study_protocol.get("contrast_shortcuts", {}).keys():
             self._viewer.bind_key(shortcut, ..., overwrite=True)
-        
+
         if self.study_protocol.get("inverted_scrolling", False) and is_inverted(self._viewer):
             reset_scrolling(self._viewer)
 
-        # reopen the study app widget
-        widget = StudyAppWidget(self._viewer)
-        self._viewer.window.add_dock_widget(
-            widget, name="ARTIST study", area="left"
-        )
+        if self._reopen_on_close:
+            widget = StudyAppWidget(self._viewer)
+            self._viewer.window.add_dock_widget(
+                widget, name="ARTIST study", area="left"
+            )
 
     def hideEvent(self, event):
         # ignore
