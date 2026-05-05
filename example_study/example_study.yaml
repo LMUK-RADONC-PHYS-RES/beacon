@@ -34,7 +34,7 @@ contrast_shortcuts:
 inverted_scrolling: True # whether to invert the zoom and scroll behavior (zoom with Ctrl + scroll, scroll through slices with regular scroll)
 
 interpolation: "bicubic" # default interpolation for the image layer, can be set per case in the cases section, possible values: "nearest", "bilinear", "bicubic", "spline16"  ‘bessel’, ‘bicubic’, ‘bilinear’, ‘blackman’, ‘catrom’, ‘gaussian’, ‘hamming’, ‘hanning’, ‘hermite’, ‘kaiser’, ‘lanczos’, ‘mitchell’, ‘nearest’, ‘spline16’, ‘spline36’
-superresolution: 3 # supersampling factor for manual label layers (1 = off, 2/3/4/5 = higher in-plane resolution). When >1, the label layer covers the same physical extent as the image but uses more pixels, enabling finer annotation.
+superresolution: 2 # supersampling factor for manual label layers (1 = off, 2/3/4/5 = higher in-plane resolution). When >1, the label layer covers the same physical extent as the image but uses more pixels, enabling finer annotation.
 
 cases_root_dir: "./example_data/3d mrlinac" # root folder for all cases, relative to root of the repository or absolute path
 cases:

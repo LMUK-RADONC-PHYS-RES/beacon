@@ -210,6 +210,8 @@ class SegmentationMetricsWidget(QWidget):
                 'data': {
                     'dsc': dsc,
                     'hd95': hd95,
+                    'layer_1': layer1.name,
+                    'layer_2': layer2.name,
                 }
             })
 

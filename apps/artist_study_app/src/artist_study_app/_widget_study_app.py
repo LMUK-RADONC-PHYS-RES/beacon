@@ -53,6 +53,7 @@ from napari_edit_log.edit_log import NapariEditLog
 from napari_inverted_scrolling import invert_scrolling, reset_scrolling, is_inverted
 from .acknowledgements import setup_acknowledgements
 from .segmentation_metrics_preview import SegmentationMetricsWidget
+from ._napari_ui import modify_napari_ui as _modify_napari_ui, revert_napari_ui as _revert_napari_ui
 
 class StudyAppWidget(QWidget):
     def __init__(self, viewer: Viewer):
@@ -639,108 +640,29 @@ class StudyAppFullWidget(QWidget):
         #self.edit_log.clear()
 
     def modify_napari_ui(self):
-        viewer = self._viewer
+        _modify_napari_ui(
+            self._viewer,
+            get_image_layer=lambda: self.image_layer,
+            get_interpolation=lambda: self.study_protocol.get("interpolation", "nearest"),
+        )
 
-        def set_axial_view():
-            interpolation2d = self.image_layer.interpolation2d if self.image_layer is not None else self.study_protocol.get("interpolation", "nearest") 
-            viewer.dims.order = (0,1,2)
-            
-            if self.image_layer is not None:
-                self.image_layer.interpolation2d = "linear" if interpolation2d != "linear" else "nearest"
-                self.image_layer.interpolation2d = interpolation2d
-                self.image_layer.refresh()
-            
-        def set_coronal_view():
-            interpolation2d = self.image_layer.interpolation2d if self.image_layer is not None else self.study_protocol.get("interpolation", "nearest") 
-            viewer.dims.order = (1,0,2)
-            if self.image_layer is not None:
-                self.image_layer.interpolation2d = "linear" if interpolation2d != "linear" else "nearest"
-                self.image_layer.interpolation2d = interpolation2d
-                self.image_layer.refresh()
+        prev_handler = viewer.window._qt_viewer._layers.keyPressEvent
 
-        def set_saggital_view():
-            interpolation2d = self.image_layer.interpolation2d if self.image_layer is not None else self.study_protocol.get("interpolation", "nearest") 
-            viewer.dims.order = (2,0,1)
-            if self.image_layer is not None:
-                self.image_layer.interpolation2d = "linear" if interpolation2d != "linear" else "nearest"
-                self.image_layer.interpolation2d = interpolation2d
-                self.image_layer.refresh()
-
-        axial_button = QPushButton()
-        axial_button.setText("A")
-        axial_button.clicked.connect(set_axial_view)
-        axial_button.setStyleSheet("""
-            min-width : 28px;
-            max-width : 28px;
-            min-height : 28px;
-            max-height : 28px;
-            padding: 0px;
-            """)
-           
-        viewer.window._qt_viewer._viewerButtons.layout().insertWidget(-1,axial_button)
-        axial_button = QPushButton()
-        axial_button.setText("C")
-        axial_button.clicked.connect(set_coronal_view)
-        axial_button.setStyleSheet("""
-            min-width : 28px;
-            max-width : 28px;
-            min-height : 28px;
-            max-height : 28px;
-            padding: 0px;
-            """)
-        viewer.window._qt_viewer._viewerButtons.layout().insertWidget(-1,axial_button)
-        axial_button = QPushButton()
-        axial_button.setText("S")
-        axial_button.clicked.connect(set_saggital_view)
-        axial_button.setStyleSheet("""
-            min-width : 28px;
-            max-width : 28px;
-            min-height : 28px;
-            max-height : 28px;
-            padding: 0px;
-            """)
-        viewer.window._qt_viewer._viewerButtons.layout().insertWidget(-1,axial_button)
-
-        # Hide viewer buttons since we offer our own functionality
-        viewer.window._qt_viewer._viewerButtons.rollDimsButton.setHidden(True)
-        viewer.window._qt_viewer._viewerButtons.transposeDimsButton.setHidden(True)
-        viewer.window._qt_viewer._viewerButtons.consoleButton.setHidden(True)
-        viewer.window._qt_viewer._viewerButtons.gridViewButton.setHidden(True)
-        viewer.window._qt_viewer._viewerButtons.ndisplayButton.setHidden(True)
-
-        # Hide layer list buttons
-        viewer.window._qt_viewer._layersButtons.setHidden(True)
-
-        # Hotwire to disable delete/backspace/enter keys in layer list
-        self._prev_layer_keyPressEvent_handler = viewer.window._qt_viewer._layers.keyPressEvent
-        def new_func(e):
+        def _filtered_key_press(e):
             if e is None:
                 return
             if e.key() in (Qt.Key.Key_Backspace, Qt.Key.Key_Delete):
                 e.ignore()
             else:
-                self._prev_layer_keyPressEvent_handler(e)
-        viewer.window._qt_viewer._layers.keyPressEvent = new_func
-    
+                prev_handler(e)
+
+        viewer.window._qt_viewer._layers.keyPressEvent = _filtered_key_press
+        self._prev_layer_keyPressEvent_handler = prev_handler
+
     def revert_napari_ui(self):
-        viewer = self._viewer
-        viewer.window._qt_viewer._viewerButtons.rollDimsButton.setHidden(False)
-        viewer.window._qt_viewer._viewerButtons.transposeDimsButton.setHidden(False)
-        viewer.window._qt_viewer._viewerButtons.consoleButton.setHidden(False)
-        viewer.window._qt_viewer._viewerButtons.gridViewButton.setHidden(False)
-        viewer.window._qt_viewer._viewerButtons.ndisplayButton.setHidden(False)
-
-        viewer.window._qt_viewer._layersButtons.setHidden(False)
-
+        _revert_napari_ui(self._viewer)
         viewer.window._qt_viewer._layers.keyPressEvent = self._prev_layer_keyPressEvent_handler
         del self._prev_layer_keyPressEvent_handler
-
-        for i in range(3):
-            viewer.window._qt_viewer._viewerButtons.layout().removeWidget(
-                viewer.window._qt_viewer._viewerButtons.layout().itemAt(
-                    viewer.window._qt_viewer._viewerButtons.layout().count()-1
-                ).widget()
-            )
 
     def showEvent(self, event):
         pass
