@@ -164,6 +164,13 @@ class StandaloneAppWidget(QWidget):
     def __init__(self, viewer: Viewer):
         super().__init__()
         self._viewer = viewer
+        
+        # Create layout with setup button
+        layout = QVBoxLayout(self)
+        self.setup_button = setup_iconbutton(
+            layout, " Open SetupDialog", "plus", viewer.theme, self._open_setup_dialog
+        )
+        
         from qtpy.QtCore import QTimer
         QTimer.singleShot(0, self._open_setup_dialog)
 
