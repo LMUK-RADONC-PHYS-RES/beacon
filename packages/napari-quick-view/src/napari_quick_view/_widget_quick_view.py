@@ -65,6 +65,11 @@ class QuickViewWidget(QWidget):
         self.transpose_selection = setup_combobox(
             _layout, ["0,1,2", "2,1,0", "2,0,1", "1,2,0", "0,2,1"], "0,1,2",)
 
+        _ = setup_label(
+            _layout, "Flip direction:")
+        self.flip_direction = setup_combobox(
+            _layout, ["None", "0", "1", "2"], "None",)
+
         self.image_layer = None
     
     def on_file_selected(self, file_path):
@@ -83,6 +88,17 @@ class QuickViewWidget(QWidget):
 
         img = sitk.GetArrayFromImage(img_sitk)
 
+        # Get transpose order and flip dimension
+        transpose_order = tuple(int(i) for i in self.transpose_selection.currentText().split(","))
+        flip_dim_str = self.flip_direction.currentText()
+        
+        # Apply flip if selected, accounting for transposition
+        if flip_dim_str != "None":
+            flip_dim = int(flip_dim_str)
+            # Map the flip dimension through the transpose order to get the actual axis to flip
+            flip_axis = 2-transpose_order.index(flip_dim)
+            img = np.flip(img, axis=flip_axis)
+
         self.image_layer = self._viewer.add_image(
             img,
             name='Example Image',
@@ -90,8 +106,6 @@ class QuickViewWidget(QWidget):
         )
 
         resolution = img_sitk.GetSpacing()  # x,y,z
-        transpose_order = tuple(int(i) for i in self.transpose_selection.currentText().split(","))
-
         self._viewer.dims.order = transpose_order
 
         print("Image resolution:", resolution)
