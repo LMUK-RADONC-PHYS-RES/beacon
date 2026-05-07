@@ -182,7 +182,7 @@ class SegmentationMetricsWidget(QWidget):
             # normal-resolution reference mask).  Use nearest-neighbour to preserve label values.
             zoom_factors = tuple(s1 / s2 for s1, s2 in zip(data1.shape, data2.shape))
             try:
-                data2 = zoom(data2, zoom_factors, order=0).astype(data2.dtype)
+                data2 = zoom(data2, zoom_factors, order=0, grid_mode=True).astype(data2.dtype)
             except Exception as exc:
                 print(f"Segmentation metrics: resampling failed ({exc})")
                 self.metrics_label.setText("DSC: n/a\nHD95: n/a")

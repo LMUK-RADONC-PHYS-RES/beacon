@@ -103,7 +103,7 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         # Apply superresolution upsampling for persistent segmentation layers
         sr = self.superresolution
         if sr > 1 and data.ndim == 3:
-            data = zoom(data, (1, sr, sr), order=0).astype(data.dtype)
+            data = zoom(data, (1, sr, sr), order=0, grid_mode=True).astype(data.dtype)
             scale = np.array(self.session_cfg["scale"])
             scale = np.array([scale[0], scale[1] / sr, scale[2] / sr])
         else:
