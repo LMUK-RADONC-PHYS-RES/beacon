@@ -40,8 +40,6 @@ class ManualSegmentationWidget(QWidget):
 
         self.allow_close = False
         self.allow_next_object = False
-        self.superresolution = 1  # superresolution factor (1 = no superresolution)
-
         self.colormap = ColorMapper(49, seed=0.5, background_value=0)
         self.object_index = 0
 
@@ -236,16 +234,6 @@ class ManualSegmentationWidget(QWidget):
             _rot = np.eye(self.session_cfg["ndim"])
             _rot[-2:, -2:] = self.session_cfg["rotate"]
             self.session_cfg["rotate"] = _rot
-
-        # Apply superresolution: scale up spatial dimensions while preserving physical extent
-        if self.superresolution > 1 and self.session_cfg["ndim"] == 3:
-            sr = self.superresolution
-            shape = self.session_cfg["shape"]
-            scale = self.session_cfg["scale"]
-            print(f"[Superresolution] shape before: {shape}, scale before: {scale}")
-            self.session_cfg["shape"] = (shape[0], shape[1] * sr, shape[2] * sr)
-            self.session_cfg["scale"] = np.array([scale[0], scale[1] / sr, scale[2] / sr])
-            print(f"[Superresolution] shape after:  {self.session_cfg['shape']}, scale after:  {self.session_cfg['scale']}")
 
         # Compute the overall spacing when considering both, affine and scale transform
         self.session_cfg["spacing"] = np.array(self.session_cfg["scale"]) * np.array(
