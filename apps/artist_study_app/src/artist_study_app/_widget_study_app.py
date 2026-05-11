@@ -170,6 +170,7 @@ class StudyAppFullWidget(QWidget):
                 os.makedirs(output_folder, exist_ok=True)
 
         self.approve_mode = self.study_protocol.get("approve_mode", "Next")
+        self.save_with_compression = self.study_protocol.get("save_with_compression", True)
         self._reopen_on_close = True
         # cathesian product of methods and cases
         self.study_tasks = []
@@ -588,12 +589,12 @@ class StudyAppFullWidget(QWidget):
                 if self._original_img_sitk_reference is not None:
                     sitk_img.SetOrigin(self._original_img_sitk_reference.GetOrigin())
                     sitk_img.SetDirection(self._original_img_sitk_reference.GetDirection())
-                sitk.WriteImage(sitk_img, output_path, useCompression=True)
+                sitk.WriteImage(sitk_img, output_path, useCompression=self.save_with_compression)
 
                 if self._original_img_sitk_reference is not None:
                     original_seg = _resample_segmentation_to_original_space(sitk_img, self._original_img_sitk_reference)
                     original_path = output_path.replace(".mha", "_original_space.mha")
-                    sitk.WriteImage(original_seg, original_path, useCompression=True)
+                    sitk.WriteImage(original_seg, original_path, useCompression=self.save_with_compression)
 
         self.edit_log.record({
             'event_group': 'study',
@@ -704,12 +705,12 @@ class StudyAppFullWidget(QWidget):
                 if self._original_img_sitk_reference is not None:
                     sitk_img.SetOrigin(self._original_img_sitk_reference.GetOrigin())
                     sitk_img.SetDirection(self._original_img_sitk_reference.GetDirection())
-                sitk.WriteImage(sitk_img, output_path, useCompression=True)
+                sitk.WriteImage(sitk_img, output_path, useCompression=self.save_with_compression)
 
                 if self._original_img_sitk_reference is not None:
                     original_seg = _resample_segmentation_to_original_space(sitk_img, self._original_img_sitk_reference)
                     original_path = output_path.replace(".mha", "_original_space.mha")
-                    sitk.WriteImage(original_seg, original_path, useCompression=True)
+                    sitk.WriteImage(original_seg, original_path, useCompression=self.save_with_compression)
 
         if output_folder != "":
             edit_log_path = os.path.join(

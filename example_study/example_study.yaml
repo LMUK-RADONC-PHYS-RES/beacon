@@ -16,6 +16,7 @@ methods:
   - manual
 
 approve_mode: "NextRemove" # possible values: Reveal, Next, NextRemove
+save_with_compression: True # whether to save label layers with compression (smaller files, slower save/load)
 confirm_before_approving: False # whether to ask the user to confirm before approving a segmentation result
 confirm_before_changing_tasks: False # whether to ask the user to confirm before changing tasks (to prevent accidental loss of work)
 disable_next_object_after_first_use: True # whether to disable the "next object" button after it is used once, to prevent users from creating too many segmentation layers
