@@ -113,6 +113,29 @@ class ManualLabelsLayer(Labels):
         self._shape_interpolation_stop = shape_interpolation_stop
         self.events.shape_interpolation_stop()
 
+    def clear_slice(self):
+        viewer = napari.current_viewer()
+
+        if tuple(viewer.dims.order) != (0, 1, 2):
+            show_warning("Clear and interpolate only works in axial view.")
+            return
+
+        if self.selected_label == 0:
+            show_warning("Please select a valid label (non-zero).")
+            return
+
+        if len(self.data.shape) != 3:
+            show_warning("Clear and interpolate only works on 3D data.")
+            return
+
+        current_slice = (self.data.shape[0] - 1 - viewer.dims.current_step[viewer.dims.order[0]]) \
+            if self.scale[viewer.dims.order[0]] < 0 else \
+            viewer.dims.current_step[viewer.dims.order[0]]
+
+        slice_data = self.data[current_slice]
+        slice_data[slice_data == self.selected_label] = 0
+        self.refresh()
+
     def apply_shape_based_interpolation(self):
         viewer = napari.current_viewer()
 

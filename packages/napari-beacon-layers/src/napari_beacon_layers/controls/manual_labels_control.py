@@ -94,15 +94,33 @@ class QtShapeBasedInterpolationControl(QtWidgetControlsBase):
 
     def __init__(self, parent: QWidget, layer: Labels) -> None:
         super().__init__(parent, layer)
-        # Setup widgets
-       
+
         self.shape_based_interpolation_label = QtWrappedLabel('label interp.:')
         self.shape_based_interpolation_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.apply_btn = setup_pushbutton(layout=None, text="Apply", function=lambda: layer.apply_shape_based_interpolation())
-    
+        self.clear_slice_btn = setup_pushbutton(layout=None, text="Clear", function=lambda: layer.clear_slice())
+
+        btn_container = QWidget()
+        btn_layout = QHBoxLayout(btn_container)
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.addWidget(self.apply_btn)
+        btn_layout.addWidget(self.clear_slice_btn)
+        self._btn_container = btn_container
+
+        viewer = napari.current_viewer()
+        if viewer is not None:
+            viewer.dims.events.order.connect(self._update_button_states)
+        self._update_button_states()
+
+    def _update_button_states(self):
+        viewer = napari.current_viewer()
+        is_axial = viewer is not None and tuple(viewer.dims.order) == (0, 1, 2)
+        self.apply_btn.setEnabled(is_axial)
+        self.clear_slice_btn.setEnabled(is_axial)
+
     def get_widget_controls(self) -> list[tuple[QtWrappedLabel, QWidget]]:
-        return [(self.shape_based_interpolation_label, self.apply_btn)]
+        return [(self.shape_based_interpolation_label, self._btn_container)]
 
 class CustomQtManualLabelsControls(QtLabelsControls):
     """Custom Qt controls for labels layer used for previewing labels.
