@@ -32,6 +32,7 @@ from qtpy.QtWidgets import (
 )
 
 from artist_study_app._widget_study_app import StudyAppFullWidget
+from artist_study_app._widget_study_app import _resample_segmentation_to_original_space
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +95,9 @@ class StandaloneSetupDialog(QDialog):
             default=1,
             prefix="Superresolution: ",
         )
+        self._isotropic_pixels_cb = setup_checkbox(
+            cfg_layout, "Isotropic voxels (resample to isotropic on load)"
+        )
 
         setup_label(cfg_layout, "Behaviour")
         self._inverted_scrolling_cb = setup_checkbox(
@@ -141,6 +145,7 @@ class StandaloneSetupDialog(QDialog):
             "mask": mask_path,
             "guidance": guidance,
             "superresolution": get_value(self._superresolution_spinbox),
+            "isotropic_pixels": bool(get_value(self._isotropic_pixels_cb)),
             "interpolation": interpolation,
             "custom_contrast_presets": {},
             "contrast_shortcuts": {},
@@ -227,6 +232,7 @@ class StandaloneStudyWidget(StudyAppFullWidget):
             "confirm_before_approving": config.get("confirm_before_approving", False),
             "confirm_before_changing_tasks": config.get("confirm_before_changing_tasks", False),
             "disable_next_object_after_first_use": config.get("disable_next_object_after_first_use", False),
+            "isotropic_pixels": config.get("isotropic_pixels", False),
         }
         super().__init__(viewer, "", synthetic_protocol)
 
@@ -293,7 +299,15 @@ class StandaloneStudyWidget(StudyAppFullWidget):
             sitk_img = sitk.GetImageFromArray(layer_data)
             spacing_zyx = np.abs(layer.scale)
             sitk_img.SetSpacing(spacing_zyx[::-1].tolist())
+            if self._original_img_sitk_reference is not None:
+                sitk_img.SetOrigin(self._original_img_sitk_reference.GetOrigin())
+                sitk_img.SetDirection(self._original_img_sitk_reference.GetDirection())
             sitk.WriteImage(sitk_img, output_path, useCompression=True)
+
+            if self._original_img_sitk_reference is not None:
+                original_seg = _resample_segmentation_to_original_space(sitk_img, self._original_img_sitk_reference)
+                original_path = output_path.replace(".mha", "_original_space.mha")
+                sitk.WriteImage(original_seg, original_path, useCompression=True)
 
         self.edit_log.record({
             "event_group": "study",

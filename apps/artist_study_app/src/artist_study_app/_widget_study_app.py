@@ -55,6 +55,31 @@ from .acknowledgements import setup_acknowledgements
 from .segmentation_metrics_preview import SegmentationMetricsWidget
 from ._napari_ui import modify_napari_ui as _modify_napari_ui, revert_napari_ui as _revert_napari_ui
 
+def _resample_segmentation_to_original_space(seg_sitk, reference_sitk):
+    resampler = sitk.ResampleImageFilter()
+    resampler.SetReferenceImage(reference_sitk)
+    resampler.SetInterpolator(sitk.sitkNearestNeighbor)
+    resampler.SetDefaultPixelValue(0)
+    resampler.SetTransform(sitk.Transform())
+    return resampler.Execute(seg_sitk)
+
+
+def _resample_sitk_to_isotropic(sitk_image, interpolator=sitk.sitkLinear):
+    original_spacing = np.array(sitk_image.GetSpacing())
+    original_size = np.array(sitk_image.GetSize())
+    target_spacing = float(original_spacing.min())
+    new_size = np.round(original_size * original_spacing / target_spacing).astype(int).tolist()
+    resampler = sitk.ResampleImageFilter()
+    resampler.SetOutputSpacing([target_spacing] * 3)
+    resampler.SetSize(new_size)
+    resampler.SetOutputDirection(sitk_image.GetDirection())
+    resampler.SetOutputOrigin(sitk_image.GetOrigin())
+    resampler.SetTransform(sitk.Transform())
+    resampler.SetDefaultPixelValue(0)
+    resampler.SetInterpolator(interpolator)
+    return resampler.Execute(sitk_image)
+
+
 class StudyAppWidget(QWidget):
     def __init__(self, viewer: Viewer):
         super().__init__()
@@ -179,6 +204,7 @@ class StudyAppFullWidget(QWidget):
         self.current_task_index = 0
         self.image_layer = None
         self.guidance_layer = None
+        self._original_img_sitk_reference = None
 
         self.manual_segmentation_widget = None
         self.automatic_segmentation_widget = None
@@ -278,6 +304,7 @@ class StudyAppFullWidget(QWidget):
         self._disconnect_widget_events()
 
         self.edit_log.stop()
+        self._original_img_sitk_reference = None
 
         if self.metrics_widget is not None:
             self.metrics_widget.stop_updates()
@@ -318,7 +345,15 @@ class StudyAppFullWidget(QWidget):
         path = task["file"]
         case_id = task["case_id"]
 
+        isotropic_pixels = self.study_protocol.get("isotropic_pixels", False)
+
+        self._original_img_sitk_reference = None
         img_sitk = sitk.ReadImage(path)
+        if isotropic_pixels:
+            print(f"[isotropic_pixels] image before: shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
+            self._original_img_sitk_reference = img_sitk
+            img_sitk = _resample_sitk_to_isotropic(img_sitk, sitk.sitkLinear)
+            print(f"[isotropic_pixels] image after:  shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
         img = sitk.GetArrayFromImage(img_sitk)
         self.image_layer = FixedImageLayer(
             img,
@@ -351,6 +386,16 @@ class StudyAppFullWidget(QWidget):
         guidance_mode = self._get_guidance_mode()
         if (task["mask_file"] is not None) and guidance_mode != "none":
             mask_sitk = sitk.ReadImage(task["mask_file"])
+            if isotropic_pixels:
+                print(f"[isotropic_pixels] mask before:  shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
+                interpolation_methods_map = {
+                    "nearest": sitk.sitkNearestNeighbor,
+                    "linear": sitk.sitkLinear,
+                    "cubic": sitk.sitkBSpline
+                }
+                interpolation_method = interpolation_methods_map.get(self.study_protocol.get("interpolation", "nearest"), sitk.sitkNearestNeighbor)
+                mask_sitk = _resample_sitk_to_isotropic(mask_sitk, interpolation_method)
+                print(f"[isotropic_pixels] mask after:   shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
             mask = sitk.GetArrayFromImage(mask_sitk)
 
             from scipy.ndimage import center_of_mass
@@ -406,6 +451,8 @@ class StudyAppFullWidget(QWidget):
                 output_folder,
                 f"{self.user_id}_case{case_id}_method{method}_layer*.mha"
             )))):
+                if file.endswith("_original_space.mha"):
+                    continue
                 layer_name = os.path.basename(file).split(f"{self.user_id}_case{case_id}_method{method}_layer")[-1].replace(".mha", "")
                 seg_sitk = sitk.ReadImage(file)
                 seg = sitk.GetArrayFromImage(seg_sitk)
@@ -518,10 +565,16 @@ class StudyAppFullWidget(QWidget):
                 # labels can be reloaded with the correct scale
                 spacing_zyx = np.abs(layer.scale)
                 sitk_img.SetSpacing(spacing_zyx[::-1].tolist())  # sitk expects XYZ order
+                if self._original_img_sitk_reference is not None:
+                    sitk_img.SetOrigin(self._original_img_sitk_reference.GetOrigin())
+                    sitk_img.SetDirection(self._original_img_sitk_reference.GetDirection())
                 sitk.WriteImage(sitk_img, output_path, useCompression=True)
-                
-                #show_info(f"Saved layer {layer.name} to {output_path}")
-                
+
+                if self._original_img_sitk_reference is not None:
+                    original_seg = _resample_segmentation_to_original_space(sitk_img, self._original_img_sitk_reference)
+                    original_path = output_path.replace(".mha", "_original_space.mha")
+                    sitk.WriteImage(original_seg, original_path, useCompression=True)
+
         self.edit_log.record({
             'event_group': 'study',
             'event_type': "approve",
@@ -628,10 +681,16 @@ class StudyAppFullWidget(QWidget):
                 # labels can be reloaded with the correct scale
                 spacing_zyx = np.abs(layer.scale)
                 sitk_img.SetSpacing(spacing_zyx[::-1].tolist())  # sitk expects XYZ order
+                if self._original_img_sitk_reference is not None:
+                    sitk_img.SetOrigin(self._original_img_sitk_reference.GetOrigin())
+                    sitk_img.SetDirection(self._original_img_sitk_reference.GetDirection())
                 sitk.WriteImage(sitk_img, output_path, useCompression=True)
-                
-                #show_info(f"Saved layer {layer.name} to {output_path}")
-        
+
+                if self._original_img_sitk_reference is not None:
+                    original_seg = _resample_segmentation_to_original_space(sitk_img, self._original_img_sitk_reference)
+                    original_path = output_path.replace(".mha", "_original_space.mha")
+                    sitk.WriteImage(original_seg, original_path, useCompression=True)
+
         if output_folder != "":
             edit_log_path = os.path.join(
                 output_folder,
@@ -639,7 +698,6 @@ class StudyAppFullWidget(QWidget):
             )
             with open(edit_log_path, 'w') as f:
                 json.dump(self.edit_log.log, f, indent=4)
-            #show_info(f"Saved edit log to {edit_log_path}")
         
         #self.edit_log.clear()
 
