@@ -96,7 +96,7 @@ class StandaloneSetupDialog(QDialog):
             prefix="Superresolution: ",
         )
         self._isotropic_pixels_cb = setup_checkbox(
-            cfg_layout, "Isotropic voxels (resample to isotropic on load)"
+            cfg_layout, "Isotropic voxels (resample to isotropic on load)", True
         )
 
         setup_label(cfg_layout, "Behaviour")
