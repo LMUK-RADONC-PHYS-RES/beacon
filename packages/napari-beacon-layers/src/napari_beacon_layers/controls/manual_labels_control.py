@@ -122,6 +122,61 @@ class QtShapeBasedInterpolationControl(QtWidgetControlsBase):
     def get_widget_controls(self) -> list[tuple[QtWrappedLabel, QWidget]]:
         return [(self.shape_based_interpolation_label, self._btn_container)]
 
+class QtSmartClearControl(QtWidgetControlsBase):
+    """Controls for smart slice-clearing strategies prior to re-interpolation.
+
+    Provides buttons to:
+    - Keep every 2nd non-empty slice (clear 1/2).
+    - Keep every 3rd non-empty slice (clear 2/3).
+    - Keep only user-painted ('original') slices, clearing interpolated ones.
+
+    All buttons are disabled when the viewer is not in axial orientation.
+    """
+
+    def __init__(self, parent: QWidget, layer) -> None:
+        super().__init__(parent, layer)
+
+        self.autoclear_label = QtWrappedLabel('autoclear:')
+        self.keep_half_btn = setup_pushbutton(
+            layout=None, text="Keep Every 2nd",
+            function=lambda: layer.clear_every_nth(2),
+        )
+        self.keep_half_btn.setToolTip("Clear every other non-empty slice")
+
+        self.keep_third_btn = setup_pushbutton(
+            layout=None, text="Keep Every 3rd",
+            function=lambda: layer.clear_every_nth(3),
+        )
+        self.keep_third_btn.setToolTip("Keep every 3rd non-empty slice, clear the rest (2/3 removed)")
+
+        self.clear_artificial_btn = setup_pushbutton(
+            layout=None, text="Keep Manually Edited",
+            function=lambda: layer.clear_artificial(),
+        )
+        self.clear_artificial_btn.setToolTip(
+            "Clear all slices not hand-painted by the user"
+        )
+
+        viewer = napari.current_viewer()
+        if viewer is not None:
+            viewer.dims.events.order.connect(self._update_button_states)
+        self._update_button_states()
+
+    def _update_button_states(self):
+        viewer = napari.current_viewer()
+        is_axial = viewer is not None and tuple(viewer.dims.order) == (0, 1, 2)
+        self.keep_half_btn.setEnabled(is_axial)
+        self.keep_third_btn.setEnabled(is_axial)
+        self.clear_artificial_btn.setEnabled(is_axial)
+
+    def get_widget_controls(self) -> list[tuple[QtWrappedLabel, QWidget]]:
+        return [
+            (self.autoclear_label, self.keep_half_btn),
+            (QtWrappedLabel(''), self.keep_third_btn),
+            (QtWrappedLabel(''), self.clear_artificial_btn),
+        ]
+
+
 class CustomQtManualLabelsControls(QtLabelsControls):
     """Custom Qt controls for labels layer used for previewing labels.
     
@@ -202,5 +257,8 @@ class CustomQtManualLabelsControls(QtLabelsControls):
         if len(layer.data.shape) == 3:
             self._shape_based_interpolation_control = QtShapeBasedInterpolationControl(self, layer)
             self._add_widget_controls(self._shape_based_interpolation_control)
+
+            self._smart_clear_control = QtSmartClearControl(self, layer)
+            self._add_widget_controls(self._smart_clear_control)
 
         self.paint_button.setChecked(True)

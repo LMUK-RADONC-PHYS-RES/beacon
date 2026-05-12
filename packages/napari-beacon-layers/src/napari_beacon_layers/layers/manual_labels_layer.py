@@ -48,9 +48,14 @@ class ManualLabelsLayer(Labels):
         self.mode = Mode.PAINT  # default mode is paint
 
         self._autofill = True
-        self.events.add(autofill=Event) 
+        self.events.add(autofill=Event)
         self.events.paint.connect(lambda event: self.apply_autofill() if self.autofill else None)
         self.events.autofill.connect(lambda event: self.apply_autofill() if self.autofill else None)
+        self.events.paint.connect(self._on_paint_track_slice)
+
+        # Slices the user has explicitly painted on — distinguishes them from
+        # artificially interpolated or pre-existing slices.
+        self._original_slices: set[int] = set()
 
         self._shape_interpolation_start = 0
         self._shape_interpolation_stop = 0
@@ -134,6 +139,64 @@ class ManualLabelsLayer(Labels):
 
         slice_data = self.data[current_slice]
         slice_data[slice_data == self.selected_label] = 0
+        self.refresh()
+
+    def _on_paint_track_slice(self, event):
+        viewer = napari.current_viewer()
+        if viewer is None or len(self.data.shape) != 3:
+            return
+        if tuple(viewer.dims.order) != (0, 1, 2):
+            return
+        current_slice = (self.data.shape[0] - 1 - viewer.dims.current_step[viewer.dims.order[0]]) \
+            if self.scale[viewer.dims.order[0]] < 0 else \
+            viewer.dims.current_step[viewer.dims.order[0]]
+        self._original_slices.add(int(current_slice))
+
+    def clear_every_nth(self, n: int):
+        """Keep every n-th non-empty slice for the selected label; clear the rest."""
+        viewer = napari.current_viewer()
+        if tuple(viewer.dims.order) != (0, 1, 2):
+            show_warning("Only works in axial view.")
+            return
+        if self.selected_label == 0:
+            show_warning("Please select a valid label (non-zero).")
+            return
+        if len(self.data.shape) != 3:
+            return
+
+        non_empty = np.where((self.data == self.selected_label).any(axis=(1, 2)))[0]
+        if len(non_empty) < 2:
+            show_warning("At least two frames with labels are required.")
+            return
+
+        # Always keep the first and last slice so a subsequent interpolation has valid endpoints.
+        keep = {int(non_empty[i]) for i in range(0, len(non_empty), n)}
+        keep.add(int(non_empty[-1]))
+
+        for s in non_empty:
+            if int(s) not in keep:
+                self.data[s][self.data[s] == self.selected_label] = 0
+
+        self.refresh()
+
+    def clear_artificial(self):
+        """Clear all non-original slices (not painted by the user)."""
+        viewer = napari.current_viewer()
+        if tuple(viewer.dims.order) != (0, 1, 2):
+            show_warning("Only works in axial view.")
+            return
+        if self.selected_label == 0:
+            show_warning("Please select a valid label (non-zero).")
+            return
+        if len(self.data.shape) != 3:
+            return
+
+        non_empty = np.where((self.data == self.selected_label).any(axis=(1, 2)))[0]
+
+        for s in non_empty:
+            if int(s) not in self._original_slices:
+                self.data[s][self.data[s] == self.selected_label] = 0
+
         self.refresh()
 
     def apply_shape_based_interpolation(self):
