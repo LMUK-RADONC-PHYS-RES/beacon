@@ -87,14 +87,6 @@ class StandaloneSetupDialog(QDialog):
         )
 
         setup_label(cfg_layout, "Labels")
-        self._superresolution_spinbox = setup_spinbox(
-            cfg_layout,
-            minimum=1,
-            maximum=5,
-            step_size=1,
-            default=1,
-            prefix="Superresolution: ",
-        )
         self._isotropic_pixels_cb = setup_checkbox(
             cfg_layout, "Isotropic voxels (resample to isotropic on load)", True
         )
@@ -144,7 +136,6 @@ class StandaloneSetupDialog(QDialog):
         return {
             "mask": mask_path,
             "guidance": guidance,
-            "superresolution": get_value(self._superresolution_spinbox),
             "isotropic_pixels": bool(get_value(self._isotropic_pixels_cb)),
             "interpolation": interpolation,
             "custom_contrast_presets": {},
@@ -224,7 +215,6 @@ class StandaloneStudyWidget(StudyAppFullWidget):
             "output_folder": "",
             "approve_mode": "Next",
             "guidance": config.get("guidance", "none"),
-            "superresolution": config.get("superresolution", 1),
             "interpolation": config.get("interpolation", "nearest"),
             "custom_contrast_presets": config.get("custom_contrast_presets", {}),
             "contrast_shortcuts": config.get("contrast_shortcuts", {}),

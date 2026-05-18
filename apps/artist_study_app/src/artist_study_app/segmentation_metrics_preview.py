@@ -178,8 +178,7 @@ class SegmentationMetricsWidget(QWidget):
         data2 = np.asarray(layer2.data)
 
         if data1.shape != data2.shape:
-            # Try to resample data2 onto data1's grid (e.g. superresolution segmentation vs
-            # normal-resolution reference mask).  Use nearest-neighbour to preserve label values.
+            # Try to resample data2 onto data1's grid.  Use nearest-neighbour to preserve label values.
             zoom_factors = tuple(s1 / s2 for s1, s2 in zip(data1.shape, data2.shape))
             try:
                 data2 = zoom(data2, zoom_factors, order=0, grid_mode=True).astype(data2.dtype)

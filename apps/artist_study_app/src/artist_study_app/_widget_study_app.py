@@ -64,22 +64,6 @@ def _resample_segmentation_to_original_space(seg_sitk, reference_sitk):
     return resampler.Execute(seg_sitk)
 
 
-def _resample_sitk_with_superresolution(sitk_image, factor, interpolator=sitk.sitkLinear):
-    original_spacing = np.array(sitk_image.GetSpacing())
-    original_size = np.array(sitk_image.GetSize())
-    target_spacing = (original_spacing / factor).tolist()
-    new_size = np.round(original_size * factor).astype(int).tolist()
-    resampler = sitk.ResampleImageFilter()
-    resampler.SetOutputSpacing(target_spacing)
-    resampler.SetSize(new_size)
-    resampler.SetOutputDirection(sitk_image.GetDirection())
-    resampler.SetOutputOrigin(sitk_image.GetOrigin())
-    resampler.SetTransform(sitk.Transform())
-    resampler.SetDefaultPixelValue(0)
-    resampler.SetInterpolator(interpolator)
-    return resampler.Execute(sitk_image)
-
-
 def _resample_sitk_to_isotropic(sitk_image, interpolator=sitk.sitkLinear):
     original_spacing = np.array(sitk_image.GetSpacing())
     original_size = np.array(sitk_image.GetSize())
@@ -330,7 +314,7 @@ class StudyAppFullWidget(QWidget):
         if self.image_layer is not None:
             self._viewer.layers.remove(self.image_layer)
             self.image_layer = None
-        
+
         if self.guidance_layer is not None:
             self._viewer.layers.remove(self.guidance_layer)
             self.guidance_layer = None
@@ -363,20 +347,15 @@ class StudyAppFullWidget(QWidget):
         case_id = task["case_id"]
 
         isotropic_pixels = self.study_protocol.get("isotropic_pixels", False)
-        superresolution = max(1, min(5, int(self.study_protocol.get("superresolution", 1))))
 
         self._original_img_sitk_reference = None
         img_sitk = sitk.ReadImage(path)
-        if isotropic_pixels or superresolution > 1:
+        if isotropic_pixels:
             self._original_img_sitk_reference = img_sitk
         if isotropic_pixels:
             print(f"[isotropic_pixels] image before: shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
             img_sitk = _resample_sitk_to_isotropic(img_sitk, sitk.sitkLinear)
             print(f"[isotropic_pixels] image after:  shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
-        if superresolution > 1:
-            print(f"[superresolution] image before: shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
-            img_sitk = _resample_sitk_with_superresolution(img_sitk, superresolution, sitk.sitkLinear)
-            print(f"[superresolution] image after:  shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
         img = sitk.GetArrayFromImage(img_sitk)
         self.image_layer = FixedImageLayer(
             img,
@@ -419,10 +398,6 @@ class StudyAppFullWidget(QWidget):
                 print(f"[isotropic_pixels] mask before:  shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
                 mask_sitk = _resample_sitk_to_isotropic(mask_sitk, sitk.sitkNearestNeighbor)
                 print(f"[isotropic_pixels] mask after:   shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
-            if superresolution > 1:
-                print(f"[superresolution] mask before:  shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
-                mask_sitk = _resample_sitk_with_superresolution(mask_sitk, superresolution, sitk.sitkNearestNeighbor)
-                print(f"[superresolution] mask after:   shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
             mask = sitk.GetArrayFromImage(mask_sitk)
 
             from scipy.ndimage import center_of_mass
@@ -478,7 +453,7 @@ class StudyAppFullWidget(QWidget):
                 output_folder,
                 f"{self.user_id}_case{case_id}_method{method}_layer*.mha"
             )))):
-                # ignore files in original space (added in case of superresolution or isotropic resampling, to keep the original spacing and size for reference)
+                # ignore files in original space (added in case of isotropic resampling, to keep the original spacing and size for reference)
                 if file.endswith("_original_space.mha"):
                     continue
                 layer_name = os.path.basename(file).split(f"{self.user_id}_case{case_id}_method{method}_layer")[-1].replace(".mha", "")
@@ -490,7 +465,6 @@ class StudyAppFullWidget(QWidget):
                 )
                 seg_layer.colormap = self.colormap[i%self.colormap.num_colors]
                 seg_layer.contour = 1
-                    # Superresolution label: use spacing saved in the file
                 seg_layer.scale = np.array([-1,1,1]) * np.array(seg_sitk.GetSpacing()[::-1]) 
 
                 self._viewer.add_layer(seg_layer)
@@ -582,8 +556,7 @@ class StudyAppFullWidget(QWidget):
                 )
                 layer_data = layer.data.astype(np.uint8)
                 sitk_img = sitk.GetImageFromArray(layer_data)
-                # Store layer spacing (abs to remove z-flip) so superresolution
-                # labels can be reloaded with the correct scale
+                # Store layer spacing (abs to remove z-flip) so labels can be reloaded with the correct scale
                 spacing_zyx = np.abs(layer.scale)
                 sitk_img.SetSpacing(spacing_zyx[::-1].tolist())  # sitk expects XYZ order
                 if self._original_img_sitk_reference is not None:
@@ -698,8 +671,7 @@ class StudyAppFullWidget(QWidget):
                 )
                 layer_data = layer.data.astype(np.uint8)
                 sitk_img = sitk.GetImageFromArray(layer_data)
-                # Store layer spacing (abs to remove z-flip) so superresolution
-                # labels can be reloaded with the correct scale
+                # Store layer spacing (abs to remove z-flip) so labels can be reloaded with the correct scale
                 spacing_zyx = np.abs(layer.scale)
                 sitk_img.SetSpacing(spacing_zyx[::-1].tolist())  # sitk expects XYZ order
                 if self._original_img_sitk_reference is not None:
@@ -760,7 +732,7 @@ class StudyAppFullWidget(QWidget):
         if self.guidance_layer is not None:
             self._viewer.layers.remove(self.guidance_layer)
             self.guidance_layer = None
-        
+
         if self.manual_segmentation_widget is not None:
             self.manual_segmentation_widget.allow_close = True
             self._viewer.window.remove_dock_widget(self.manual_segmentation_widget)
