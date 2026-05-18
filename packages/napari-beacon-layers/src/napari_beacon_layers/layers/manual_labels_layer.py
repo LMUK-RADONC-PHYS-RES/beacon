@@ -62,7 +62,19 @@ class ManualLabelsLayer(Labels):
         self.events.add(shape_interpolation_start=Event)
         self.events.add(shape_interpolation_stop=Event)
 
-    
+        self.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
+
+    def _prevent_drawing_with_right_click(self, layer, event):
+        if event.button != 2 or self.mode == Mode.PAN_ZOOM:  # not right click
+            return
+
+        prev_mode = self.mode
+        self.mode = Mode.PAN_ZOOM
+        # Keep the mode in PAN_ZOOM until the mouse is released or moved (indicating a drag), then revert to the previous mode.
+        while event.type == 'mouse_move' or event.type == 'mouse_press':
+            yield
+        self.mode = prev_mode
+        
     @property
     def autofill(self):
         """bool: fill bucket changes only connected pixels of same label."""
