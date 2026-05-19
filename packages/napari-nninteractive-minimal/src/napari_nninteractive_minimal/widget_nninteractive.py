@@ -87,11 +87,11 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         self._viewer.add_layer(label_layer)
 
     def _prevent_drawing_with_right_click(self, layer, event):
-        if event.button != 2 or layer.mode == Mode.PAN_ZOOM:  # not right click
+        if event.button != 2 or layer.mode == "PAN_ZOOM":  # not right click
             return
 
         prev_mode = layer.mode
-        layer.mode = Mode.PAN_ZOOM
+        layer.mode = "PAN_ZOOM"
         # Keep the mode in PAN_ZOOM until the mouse is released or moved (indicating a drag), then revert to the previous mode.
         while event.type == 'mouse_move' or event.type == 'mouse_press':
             yield
