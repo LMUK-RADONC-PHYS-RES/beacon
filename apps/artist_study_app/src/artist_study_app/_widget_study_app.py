@@ -14,6 +14,7 @@ from functools import partial
 import numpy as np
 import random
 from itertools import product
+from scipy.ndimage import center_of_mass
 
 from napari.utils.colormaps import CyclicLabelColormap, DirectLabelColormap, label_colormap
 from napari.utils.notifications import show_info, show_warning, show_error, show_console_notification
@@ -400,7 +401,6 @@ class StudyAppFullWidget(QWidget):
                 print(f"[isotropic_pixels] mask after:   shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
             mask = sitk.GetArrayFromImage(mask_sitk)
 
-            from scipy.ndimage import center_of_mass
             com = np.array(center_of_mass(mask)).astype(np.int32)
 
             if guidance_mode == "full-3d-mask":
@@ -712,6 +712,20 @@ class StudyAppFullWidget(QWidget):
                 self._prev_layer_keyPressEvent_handler(e)
 
         self._viewer.window._qt_viewer._layers.keyPressEvent = _filtered_key_press
+
+        def reset_view_to_guidance():
+            if self.guidance_layer is not None:
+                if isinstance(self.guidance_layer, PreviewLabelsLayer):
+                    com = np.array(center_of_mass(self.guidance_layer.data > 0)).astype(np.int32)
+                    com[0] = self.guidance_layer.data.shape[0] - com[0] - 1  # flip z for napari vs sitk
+                elif isinstance(self.guidance_layer, PreviewPointsLayer):
+                    com = np.array(self.guidance_layer.data[0]).astype(np.int32)
+                    com[0] = self.image_layer.data.shape[0] - com[0] - 1  # flip z for napari vs sitk
+                self._viewer.dims.set_current_step(0, com[0])
+                self._viewer.dims.set_current_step(1, com[1])
+                self._viewer.dims.set_current_step(2, com[2])
+                self._viewer.dims.order = (0, 1, 2)
+        self._viewer.window._qt_viewer._viewerButtons.resetViewButton.clicked.connect(lambda: reset_view_to_guidance())
 
     def revert_napari_ui(self):
         _revert_napari_ui(self._viewer)

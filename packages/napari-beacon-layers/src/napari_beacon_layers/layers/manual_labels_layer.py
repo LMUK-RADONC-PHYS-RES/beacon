@@ -47,6 +47,8 @@ class ManualLabelsLayer(Labels):
         super().__init__(data, *args, **kwargs)
         self.mode = Mode.PAINT  # default mode is paint
 
+        self.brush_size = 2
+        
         self._autofill = True
         self.events.add(autofill=Event)
         self.events.paint.connect(lambda event: self.apply_autofill() if self.autofill else None)

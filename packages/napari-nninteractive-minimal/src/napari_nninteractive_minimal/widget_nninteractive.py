@@ -97,10 +97,17 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
             yield
         layer.mode = prev_mode
 
+    def add_point_layer(self) -> None:
+        """Adds a scribble layer to the viewer with an initial blank data array."""
+        super().add_point_layer()
+        point_layer = self._viewer.layers[self.point_layer_name]
+        point_layer.opacity = 0.3
+
     def add_scribble_layer(self) -> None:
         """Adds a scribble layer to the viewer with an initial blank data array."""
         super().add_scribble_layer()
         scribble_layer = self._viewer.layers[self.scribble_layer_name]
+        scribble_layer.opacity = 0.3
         if scribble_layer is not None and self._prevent_drawing_with_right_click not in scribble_layer.mouse_drag_callbacks:
             scribble_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
 
