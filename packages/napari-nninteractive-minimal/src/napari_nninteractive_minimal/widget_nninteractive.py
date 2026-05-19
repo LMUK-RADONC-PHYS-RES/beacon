@@ -122,8 +122,8 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         """Adds a lasso layer to the viewer."""
         super().add_lasso_layer()
         lasso_layer = self._viewer.layers[self.lasso_layer_name]
-        if lasso_layer is not None and self._prevent_drawing_with_right_click not in lasso_layer.mouse_drag_callbacks:
-            lasso_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
+        #if lasso_layer is not None and self._prevent_drawing_with_right_click not in lasso_layer.mouse_drag_callbacks:
+        #    lasso_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
 
     def add_label_layer(self, data, name) -> None:
         """
