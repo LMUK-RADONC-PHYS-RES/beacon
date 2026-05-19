@@ -86,6 +86,23 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
 
         self._viewer.add_layer(label_layer)
 
+    def add_scribble_layer(self) -> None:
+        """Adds a scribble layer to the viewer with an initial blank data array."""
+        super().add_scribble_layer()
+        scribble_layer = self._viewer.layers[self.scribble_layer_name]
+        if scribble_layer is not None:
+            def _prevent_drawing_with_right_click(self, layer, event):
+                if event.button != 2 or self.mode == Mode.PAN_ZOOM:  # not right click
+                    return
+
+                prev_mode = scribble_layer.mode
+                scribble_layer.mode = Mode.PAN_ZOOM
+                # Keep the mode in PAN_ZOOM until the mouse is released or moved (indicating a drag), then revert to the previous mode.
+                while event.type == 'mouse_move' or event.type == 'mouse_press':
+                    yield
+                scribble_layer.mode = prev_mode
+            scribble_layer.mouse_drag_callbacks.insert(0, _prevent_drawing_with_right_click)
+
     def add_label_layer(self, data, name) -> None:
         """
         Check if a layer with the layer_name already exists. If yes rename this by adding an index
