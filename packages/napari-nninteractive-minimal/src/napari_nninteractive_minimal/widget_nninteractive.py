@@ -86,22 +86,37 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
 
         self._viewer.add_layer(label_layer)
 
+    def _prevent_drawing_with_right_click(self, layer, event):
+        if event.button != 2 or layer.mode == Mode.PAN_ZOOM:  # not right click
+            return
+
+        prev_mode = layer.mode
+        layer.mode = Mode.PAN_ZOOM
+        # Keep the mode in PAN_ZOOM until the mouse is released or moved (indicating a drag), then revert to the previous mode.
+        while event.type == 'mouse_move' or event.type == 'mouse_press':
+            yield
+        layer.mode = prev_mode
+
     def add_scribble_layer(self) -> None:
         """Adds a scribble layer to the viewer with an initial blank data array."""
         super().add_scribble_layer()
         scribble_layer = self._viewer.layers[self.scribble_layer_name]
-        if scribble_layer is not None:
-            def _prevent_drawing_with_right_click(self, layer, event):
-                if event.button != 2 or self.mode == Mode.PAN_ZOOM:  # not right click
-                    return
+        if scribble_layer is not None and self._prevent_drawing_with_right_click not in scribble_layer.mouse_drag_callbacks:
+            scribble_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
 
-                prev_mode = scribble_layer.mode
-                scribble_layer.mode = Mode.PAN_ZOOM
-                # Keep the mode in PAN_ZOOM until the mouse is released or moved (indicating a drag), then revert to the previous mode.
-                while event.type == 'mouse_move' or event.type == 'mouse_press':
-                    yield
-                scribble_layer.mode = prev_mode
-            scribble_layer.mouse_drag_callbacks.insert(0, _prevent_drawing_with_right_click)
+    def add_bbox_layer(self) -> None:
+        """Adds a bounding box layer to the viewer."""
+        super().add_bbox_layer()
+        bbox_layer = self._viewer.layers[self.bbox_layer_name]
+        if bbox_layer is not None and self._prevent_drawing_with_right_click not in bbox_layer.mouse_drag_callbacks:
+            bbox_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
+
+    def add_lasso_layer(self) -> None:
+        """Adds a lasso layer to the viewer."""
+        super().add_lasso_layer()
+        lasso_layer = self._viewer.layers[self.lasso_layer_name]
+        if lasso_layer is not None and self._prevent_drawing_with_right_click not in lasso_layer.mouse_drag_callbacks:
+            lasso_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
 
     def add_label_layer(self, data, name) -> None:
         """
