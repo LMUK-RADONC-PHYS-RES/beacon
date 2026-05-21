@@ -3,6 +3,9 @@ import numpy as np
 
 from napari_nninteractive import nnInteractiveWidget
 from napari_nninteractive.layers.point_layer import SinglePointLayer
+from napari_nninteractive.layers.lasso_layer import LassoLayer
+from napari_nninteractive.layers.bbox_layer import BBoxLayer
+
 #from napari_nninteractive_minimal.single_point_layer import SinglePointLayer
 from napari_nninteractive.utils.utils import ColorMapper, determine_layer_index
 
@@ -90,6 +93,11 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         if event.button != 2 or layer.mode == "PAN_ZOOM":  # not right click
             return
 
+        if isinstance(layer,BBoxLayer) or isinstance(layer,LassoLayer):
+            if layer._is_creating or layer._is_moving:
+                return
+                #layer._finish_drawing()
+
         prev_mode = layer.mode
         layer.mode = "PAN_ZOOM"
         # Keep the mode in PAN_ZOOM until the mouse is released or moved (indicating a drag), then revert to the previous mode.
@@ -122,8 +130,8 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         """Adds a lasso layer to the viewer."""
         super().add_lasso_layer()
         lasso_layer = self._viewer.layers[self.lasso_layer_name]
-        #if lasso_layer is not None and self._prevent_drawing_with_right_click not in lasso_layer.mouse_drag_callbacks:
-        #    lasso_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
+        if lasso_layer is not None and self._prevent_drawing_with_right_click not in lasso_layer.mouse_drag_callbacks:
+            lasso_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
 
     def add_label_layer(self, data, name) -> None:
         """
