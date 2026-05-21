@@ -43,6 +43,7 @@ cases:
   - id: lung26 # case id
     file: aumc_lung_patient026__GTV.mha # image file
     mask: aumc_lung_patient026__GTV__mask.mha # optional mask to guide the user
+    #guidance_point: [67, 139, 181] # optional [z, y, x] override for the guidance point (takes precedence over mask center of mass when guidance_mode is point); 
   #- id: lung31
   #  file: aumc_lung_patient031__GTV.mha
   #  mask: null # optional mask to guide the user -> no mask provided for this case

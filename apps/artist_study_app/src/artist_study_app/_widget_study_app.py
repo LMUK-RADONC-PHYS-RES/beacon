@@ -167,8 +167,9 @@ class StudyAppFullWidget(QWidget):
                 "file": case["file"],
                 "case_id": case["id"],
                 "mask_file": case.get("mask", None),
+                "guidance_point": case.get("guidance_point", None),
                 "name": case.get("name", None)
-            }) 
+            })
 
             # check if there are existing approved segmentations
             if output_folder is not None and output_folder != "":
@@ -348,14 +349,20 @@ class StudyAppFullWidget(QWidget):
         case_id = task["case_id"]
 
         isotropic_pixels = self.study_protocol.get("isotropic_pixels", False)
-
+        interpolation_methods_map = {
+            "nearest": sitk.sitkNearestNeighbor,
+            "linear": sitk.sitkLinear,
+            "cubic": sitk.sitkBSpline
+        }
+        interpolation_method = interpolation_methods_map.get(self.study_protocol.get("interpolation", "nearest"), sitk.sitkNearestNeighbor)
+            
         self._original_img_sitk_reference = None
         img_sitk = sitk.ReadImage(path)
         if isotropic_pixels:
             self._original_img_sitk_reference = img_sitk
         if isotropic_pixels:
             print(f"[isotropic_pixels] image before: shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
-            img_sitk = _resample_sitk_to_isotropic(img_sitk, sitk.sitkLinear)
+            img_sitk = _resample_sitk_to_isotropic(img_sitk, interpolation_method)
             print(f"[isotropic_pixels] image after:  shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
         img = sitk.GetArrayFromImage(img_sitk)
         self.image_layer = FixedImageLayer(
@@ -384,24 +391,21 @@ class StudyAppFullWidget(QWidget):
             else:
                 show_warning(f"Default contrast preset {contrast_preset} not found. Using full contrast range instead.")
 
-
-        # load guidance mask if provided
+        # load guidance mask / point if provided
         guidance_mode = self._get_guidance_mode()
         if (task["mask_file"] is not None) and guidance_mode != "none":
             mask_sitk = sitk.ReadImage(task["mask_file"])
-            interpolation_methods_map = {
-                "nearest": sitk.sitkNearestNeighbor,
-                "linear": sitk.sitkLinear,
-                "cubic": sitk.sitkBSpline
-            }
-            interpolation_method = interpolation_methods_map.get(self.study_protocol.get("interpolation", "nearest"), sitk.sitkNearestNeighbor)
             if isotropic_pixels:
                 print(f"[isotropic_pixels] mask before:  shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
-                mask_sitk = _resample_sitk_to_isotropic(mask_sitk, sitk.sitkNearestNeighbor)
+                mask_sitk = _resample_sitk_to_isotropic(mask_sitk, interpolation_method)
                 print(f"[isotropic_pixels] mask after:   shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
             mask = sitk.GetArrayFromImage(mask_sitk)
 
             com = np.array(center_of_mass(mask)).astype(np.int32)
+
+            if task.get("guidance_point", None) is not None:
+                guidance_point = np.array(task["guidance_point"])
+                com = guidance_point
 
             if guidance_mode == "full-3d-mask":
                 self.guidance_layer = PreviewLabelsLayer(
@@ -412,7 +416,7 @@ class StudyAppFullWidget(QWidget):
                 self.guidance_layer.colormap = self.colormap[(len(self._viewer.layers) + 1) % self.colormap.num_colors]
                 self.guidance_layer.opacity = 1.0
             else:
-                print("Guidance center of mass:", com)
+                print("Guidance point:", com)
                 self.guidance_layer = PreviewPointsLayer(
                     com[np.newaxis, :],
                     name=f'Guidance {case_id}',
@@ -422,12 +426,14 @@ class StudyAppFullWidget(QWidget):
                 )
                 self.guidance_layer.opacity = 0.8
 
-            self.guidance_layer.scale = np.array([-1,1,1]) * np.array(mask_sitk.GetSpacing()[::-1])  # reverse for napari xyz vs sitk zyx
-            self.guidance_layer.editable = False
-            self._viewer.add_layer(self.guidance_layer)
-            self._viewer.dims.set_current_step(0, img.shape[0] - com[0] - 1)
-            self._viewer.dims.set_current_step(1, com[1])
-            self._viewer.dims.set_current_step(2, com[2])
+            if self.guidance_layer is not None:
+                self.guidance_layer.scale = np.array([-1,1,1]) * np.array(img_sitk.GetSpacing()[::-1])  # reverse for napari xyz vs sitk zyx
+                self.guidance_layer.editable = False
+                self._viewer.add_layer(self.guidance_layer)
+            if com is not None:
+                self._viewer.dims.set_current_step(0, img.shape[0] - com[0] - 1)
+                self._viewer.dims.set_current_step(1, com[1])
+                self._viewer.dims.set_current_step(2, com[2])
 
         if guidance_mode == "full-3d-mask":
             if self.metrics_widget is not None:
