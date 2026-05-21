@@ -362,7 +362,7 @@ class StudyAppFullWidget(QWidget):
             self._original_img_sitk_reference = img_sitk
         if isotropic_pixels:
             print(f"[isotropic_pixels] image before: shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
-            img_sitk = _resample_sitk_to_isotropic(img_sitk, interpolation_method)
+            img_sitk = _resample_sitk_to_isotropic(img_sitk, sitk.sitkLinear)
             print(f"[isotropic_pixels] image after:  shape={img_sitk.GetSize()[::-1]}, spacing={img_sitk.GetSpacing()}")
         img = sitk.GetArrayFromImage(img_sitk)
         self.image_layer = FixedImageLayer(
@@ -397,7 +397,7 @@ class StudyAppFullWidget(QWidget):
             mask_sitk = sitk.ReadImage(task["mask_file"])
             if isotropic_pixels:
                 print(f"[isotropic_pixels] mask before:  shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
-                mask_sitk = _resample_sitk_to_isotropic(mask_sitk, interpolation_method)
+                mask_sitk = _resample_sitk_to_isotropic(mask_sitk, sitk.sitkNearestNeighbor)
                 print(f"[isotropic_pixels] mask after:   shape={mask_sitk.GetSize()[::-1]}, spacing={mask_sitk.GetSpacing()}")
             mask = sitk.GetArrayFromImage(mask_sitk)
 
@@ -427,7 +427,7 @@ class StudyAppFullWidget(QWidget):
                 self.guidance_layer.opacity = 0.8
 
             if self.guidance_layer is not None:
-                self.guidance_layer.scale = np.array([-1,1,1]) * np.array(img_sitk.GetSpacing()[::-1])  # reverse for napari xyz vs sitk zyx
+                self.guidance_layer.scale = np.array([-1,1,1]) * np.array(mask_sitk.GetSpacing()[::-1])  # reverse for napari xyz vs sitk zyx
                 self.guidance_layer.editable = False
                 self._viewer.add_layer(self.guidance_layer)
             if com is not None:
