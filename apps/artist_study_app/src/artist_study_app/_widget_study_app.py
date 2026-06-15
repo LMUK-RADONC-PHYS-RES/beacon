@@ -251,7 +251,7 @@ class StudyAppFullWidget(QWidget):
         self.modify_napari_ui()
         #self._start_quicksave_timer(interval_seconds=300, check_intervall_seconds=1)
 
-        self.edit_log = NapariEditLog(viewer)
+        self.edit_log = NapariEditLog(viewer, record_individual_edits=self.study_protocol.get("record_individual_edits", False))
 
         self.load_task(self.study_tasks[self.current_task_index])
 
