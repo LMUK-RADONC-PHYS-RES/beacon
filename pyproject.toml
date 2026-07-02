@@ -17,6 +17,8 @@ dependencies = [
     "napari-nninteractive-minimal",
     "artist_study_app",
     "artist_standalone_app",
+    "recist_study_app",
+    "recist_standalone_app",
     "napari-view-switch",
     # pinning to specific versions that was developed against
     "napari-nninteractive==1.0.6",
@@ -37,6 +39,8 @@ napari-manual-segmentation = { workspace = true }
 napari-nninteractive-minimal = { workspace = true }
 artist-study-app = { workspace = true }
 artist-standalone-app = { workspace = true }
+recist-study-app = { workspace = true }
+recist-standalone-app = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*", "apps/*"]

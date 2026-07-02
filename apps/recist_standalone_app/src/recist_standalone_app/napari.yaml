@@ -1,0 +1,13 @@
+name: recist_standalone_app
+display_name: RECIST Standalone App
+visibility: hidden
+categories: ["Utilities"]
+contributions:
+  commands:
+    - id: "recist_standalone_app.StandaloneAppWidget"
+      title: "RECIST-Standalone"
+      python_name: "recist_standalone_app:StandaloneAppWidget"
+
+  widgets:
+    - command: "recist_standalone_app.StandaloneAppWidget"
+      display_name: RECIST-Standalone

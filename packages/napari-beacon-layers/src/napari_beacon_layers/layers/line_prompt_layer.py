@@ -9,10 +9,12 @@ from napari_beacon_layers.controls.line_prompt_controls import CustomQtLinePromp
 class LinePromptLayer(Shapes):
     """A Shapes layer restricted to Line shapes only, keeping at most one line."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, limit_to_single_line=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.mode = "add_line"
-        self.events.data.connect(self._enforce_single_line)
+        
+        if limit_to_single_line:
+            self.events.data.connect(self._enforce_single_line)
 
     def _enforce_single_line(self, event=None) -> None:
         """Remove all lines except the most recently added one."""

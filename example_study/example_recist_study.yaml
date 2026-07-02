@@ -1,0 +1,43 @@
+# output folder for saving results
+output_folder: ./example_study/example_recist_output # relative to root of the repository or absolute path
+
+# order tasks presented to the user
+# the order is consistent between runs, by seeding with the user id
+order: random # possible values: sequential-methods, sequential-cases, random, manual
+
+# manual_order:
+# - line_prompt_caseid1
+# - line_prompt_caseid2
+
+methods:
+  - line_prompt
+
+approve_mode: "NextRemove" # possible values: Next, NextRemove
+confirm_before_approving: False # whether to ask the user to confirm before approving a line prompt
+confirm_before_changing_tasks: False # whether to ask the user to confirm before changing tasks (to prevent accidental loss of work)
+
+# guidance shown to the user to indicate which lesion should be measured
+guidance: point # possible values: False, True/point (= point guidance), full-3d-mask/labels/mask (= show the full 3D mask as guidance for the user)
+
+# contrast control
+contrast_preset: "CT: Lung" # null or one of the presets defined in packages/napari-beacon-layers/src/napari_beacon_layers/controls/fixed_image_controls.py
+custom_contrast_presets: # optional custom contrast presets to add to the contrast preset dropdown in the UI, defined as a mapping of preset name to (center, width) values
+  "CT: Custom1": [100.0, 400.0]
+contrast_shortcuts:
+  "Control+L": "CT: Lung"
+  "Control+M": "CT: Mediastinum"
+
+inverted_scrolling: True # whether to invert the zoom and scroll behavior (zoom with Ctrl + scroll, scroll through slices with regular scroll)
+
+interpolation: "bicubic" # default interpolation for the image layer, possible values: "nearest", "bilinear", "bicubic", "spline16" 'bessel', 'bicubic', 'bilinear', 'blackman', 'catrom', 'gaussian', 'hamming', 'hanning', 'hermite', 'kaiser', 'lanczos', 'mitchell', 'nearest', 'spline16', 'spline36'
+isotropic_pixels: True # whether to resample the image (and guidance mask) to isotropic voxels on load by upscaling to the finest spacing. Line prompts are stored in this resampled space.
+
+cases_root_dir: "./example_data/3d mrlinac" # root folder for all cases, relative to root of the repository or absolute path
+cases:
+  - id: lung26 # case id
+    file: aumc_lung_patient026__GTV.mha # image file
+    mask: aumc_lung_patient026__GTV__mask.mha # optional mask, used here only to derive the guidance point
+  - id: lung31
+    file: aumc_lung_patient031__GTV.mha
+    mask: aumc_lung_patient031__GTV__mask.mha
+    #name: "Metastasis" # optional name to show in the UI for this case, if not provided the case id will be used
