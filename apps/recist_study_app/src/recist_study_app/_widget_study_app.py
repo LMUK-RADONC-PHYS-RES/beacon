@@ -336,12 +336,14 @@ class StudyAppFullWidget(QWidget):
             self._viewer.add_layer(self.guidance_layer)
 
         # set up the line prompt layer
+        allow_multiple_lines = self.study_protocol.get("allow_multiple_lines", False)
         self.line_layer = LinePromptLayer(
             ndim=self.image_layer.ndim,
             scale=self.image_layer.scale,
             name=f'Line prompt {case_id}',
             edge_color='yellow',
             edge_width=1,
+            limit_to_single_line=not allow_multiple_lines,
         )
         self._viewer.add_layer(self.line_layer)
 
@@ -351,8 +353,7 @@ class StudyAppFullWidget(QWidget):
             try:
                 with open(existing_json, 'r') as f:
                     saved = json.load(f)
-                points_index = np.array(saved["line_points_index"])
-                self.line_layer.data = [points_index]
+                self.line_layer.data = [np.array(line["line_points_index"]) for line in saved["lines"]]
             except Exception as e:
                 show_warning(f"Could not load existing line prompt for this case: {e}")
 
@@ -383,14 +384,22 @@ class StudyAppFullWidget(QWidget):
         return points_index_original
 
     def _build_line_prompt_result(self, task):
-        points_index = np.asarray(self.line_layer.data[0])
         spacing_zyx = np.abs(self.line_layer.scale)
-        points_physical = points_index * spacing_zyx
-        length_mm = float(np.linalg.norm(points_physical[1] - points_physical[0]))
-
-        points_index_original = self._points_index_to_original_space(points_index)
         original_spacing_zyx = np.array(self._original_img_sitk_reference.GetSpacing()[::-1]).tolist() \
             if self._original_img_sitk_reference is not None else None
+
+        lines = []
+        for line_data in self.line_layer.data:
+            points_index = np.asarray(line_data)
+            points_physical = points_index * spacing_zyx
+            length_mm = float(np.linalg.norm(points_physical[1] - points_physical[0]))
+            points_index_original = self._points_index_to_original_space(points_index)
+            lines.append({
+                "line_points_index": points_index.tolist(),
+                "line_points_physical_mm": points_physical.tolist(),
+                "line_points_index_original_space": points_index_original,
+                "length_mm": length_mm,
+            })
 
         return {
             "task_id": task["task_id"],
@@ -398,12 +407,10 @@ class StudyAppFullWidget(QWidget):
             "case_id": task["case_id"],
             "user_id": self.user_id,
             "file": task["file"],
-            "line_points_index": points_index.tolist(),
             "spacing_zyx": spacing_zyx.tolist(),
-            "line_points_physical_mm": points_physical.tolist(),
-            "line_points_index_original_space": points_index_original,
             "original_spacing_zyx": original_spacing_zyx,
-            "length_mm": length_mm,
+            "num_lines": len(lines),
+            "lines": lines,
             "timestamp": time.time(),
         }
 
@@ -419,13 +426,13 @@ class StudyAppFullWidget(QWidget):
         output_folder = self.study_protocol.get("output_folder", "")
 
         result = self._build_line_prompt_result(task)
-        length_mm = result["length_mm"]
+        num_lines = result["num_lines"]
 
         output_path = self._output_json_path(task)
         with open(output_path, 'w') as f:
             json.dump(result, f, indent=4)
 
-        show_info(f"Saved line prompt ({length_mm:.1f} mm) for task {task['task_id']} to {output_path}")
+        show_info(f"Saved {num_lines} line prompt(s) for task {task['task_id']} to {output_path}")
 
         if self.approve_mode == "NextRemove":
             self.clear_task()

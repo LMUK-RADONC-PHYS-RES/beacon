@@ -80,6 +80,9 @@ class StandaloneSetupDialog(QDialog):
         self._isotropic_pixels_cb = setup_checkbox(
             cfg_layout, "Isotropic voxels (resample to isotropic on load)", True
         )
+        self._allow_multiple_lines_cb = setup_checkbox(
+            cfg_layout, "Allow multiple line prompts"
+        )
 
         setup_label(cfg_layout, "Behaviour")
         self._inverted_scrolling_cb = setup_checkbox(
@@ -120,6 +123,7 @@ class StandaloneSetupDialog(QDialog):
             "mask": mask_path,
             "guidance": guidance,
             "isotropic_pixels": bool(get_value(self._isotropic_pixels_cb)),
+            "allow_multiple_lines": bool(get_value(self._allow_multiple_lines_cb)),
             "interpolation": interpolation,
             "custom_contrast_presets": {},
             "contrast_shortcuts": {},
@@ -204,6 +208,7 @@ class StandaloneStudyWidget(StudyAppFullWidget):
             "confirm_before_approving": config.get("confirm_before_approving", False),
             "confirm_before_changing_tasks": config.get("confirm_before_changing_tasks", False),
             "isotropic_pixels": config.get("isotropic_pixels", False),
+            "allow_multiple_lines": config.get("allow_multiple_lines", False),
         }
         super().__init__(viewer, "", synthetic_protocol)
 
@@ -262,7 +267,7 @@ class StandaloneStudyWidget(StudyAppFullWidget):
         show_info(f"Saving line prompt for {case_id} ({method})…")
 
         result = self._build_line_prompt_result(task)
-        length_mm = result["length_mm"]
+        num_lines = result["num_lines"]
 
         output_path = os.path.join(
             output_folder,
@@ -271,4 +276,4 @@ class StandaloneStudyWidget(StudyAppFullWidget):
         with open(output_path, "w") as f:
             json.dump(result, f, indent=4)
 
-        show_info(f"Saved line prompt ({length_mm:.1f} mm) to {output_path}")
+        show_info(f"Saved {num_lines} line prompt(s) to {output_path}")
