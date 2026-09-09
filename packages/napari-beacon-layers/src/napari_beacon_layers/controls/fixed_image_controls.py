@@ -1,6 +1,7 @@
+import napari
+
 from napari._qt.layer_controls.qt_image_controls import QtImageControls
 from napari.utils.action_manager import action_manager
-import napari
 
 from napari_toolkit.widgets import setup_combobox
 from napari._qt.layer_controls.widgets.qt_widget_controls_base import QtWrappedLabel
