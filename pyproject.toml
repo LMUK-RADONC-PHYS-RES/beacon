@@ -21,7 +21,7 @@ dependencies = [
     "recist_standalone_app",
     "napari-view-switch",
     # pinning to specific versions that was developed against
-    "napari-nninteractive==1.0.6",
+    "napari-nninteractive[local]==2.5.3",
     "napari==0.6.6"
 ]
 

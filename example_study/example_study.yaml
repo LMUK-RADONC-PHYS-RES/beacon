@@ -15,6 +15,10 @@ methods:
   - nnInteractive
   - manual
 
+nninteractive:
+  backend: remote  # local or remote
+  server_url: http://127.0.0.1:1527
+
 approve_mode: "NextRemove" # possible values: Reveal, Next, NextRemove
 save_with_compression: True # whether to save label layers with compression (smaller files, slower save/load)
 confirm_before_approving: False # whether to ask the user to confirm before approving a segmentation result

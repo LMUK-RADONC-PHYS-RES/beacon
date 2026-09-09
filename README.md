@@ -99,6 +99,29 @@ uv run napari
   ```
 </details>
 
+### Remote nnInteractive inference
+
+nnInteractive can also run inference on a remote GPU server while keeping the napari/BEACON interface on the local workstation. This is useful when the local machine has no suitable GPU.
+
+On the GPU server, one simple option is to run the official nnInteractive server container:
+
+```bash
+export NN_INTERACTIVE_API_KEY="$(openssl rand -hex 32)"
+
+docker run --rm --gpus all \
+  -p 127.0.0.1:1527:1527 \
+  -e NN_INTERACTIVE_API_KEY="$NN_INTERACTIVE_API_KEY" \
+  ghcr.io/mic-dkfz/nninteractive-server:latest
+```
+
+From the local workstation, create an SSH tunnel:
+
+```bash
+ssh -N -L 1527:127.0.0.1:1527 USER@GPU_SERVER
+```
+
+Then, in the nnInteractive settings in BEACON, select **Remote**, use `http://127.0.0.1:1527` as the server URL, enter the same API key, and connect/initialize as usual. The image and prompts are sent to the server, while the segmentation is displayed and edited locally in napari. On a trusted network, the server can also be accessed directly without the SSH tunnel.
+
 ### In napari
 
 In theory, you can also install the plugins directly from napari's plugin manager. However, this was not yet tested and will only be made available once the plugins are published to the napari hub.

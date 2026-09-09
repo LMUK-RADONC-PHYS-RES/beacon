@@ -1,75 +1,180 @@
-from qtpy.QtWidgets import QGroupBox
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
+from qtpy.QtWidgets import QGroupBox, QWidget
 
+from napari.viewer import Viewer
 from napari_nninteractive import nnInteractiveWidget
-from napari_nninteractive.layers.point_layer import SinglePointLayer
-from napari_nninteractive.layers.lasso_layer import LassoLayer
-from napari_nninteractive.layers.bbox_layer import BBoxLayer
+from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer
+from napari.utils.events import EmitterGroup, Event
 
-#from napari_nninteractive_minimal.single_point_layer import SinglePointLayer
-from napari_nninteractive.utils.utils import ColorMapper, determine_layer_index
-
-from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer, FixedImageLayer
-from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice, crop_and_pad_nd
-from napari.utils.events import EventEmitter, EmitterGroup, Event, EventedList
 
 class nnInteractiveWidgetMinimal(nnInteractiveWidget):
-    def __init__(self, viewer: 'napari.viewer.Viewer', **kwargs):
-        super().__init__(viewer, **kwargs)
-        self._width = 250
-        self.layout().setContentsMargins(0,0,0,0)
+    """BEACON wrapper around napari-nninteractive >= 2.5.
 
-        # Define events
-        self.events = EmitterGroup(self,
-            next_object = Event,
-            reset_interactions = Event,
-            add_interaction = Event,
+    Inference is delegated to upstream napari-nninteractive:
+      - Local:  nnInteractiveInferenceSession
+      - Remote: nnInteractiveRemoteInferenceSession
+
+    This wrapper keeps only BEACON-specific layer classes, simplified UI and
+    ARTIST study events.
+    """
+
+    def __init__(
+        self,
+        napari_viewer,
+        inference_config: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ):
+        
+        viewer = napari_viewer
+
+        self._preserve_interaction_layers_on_next = False
+
+        super().__init__(viewer, **kwargs)
+
+        try:
+            self.reset_button.clicked.disconnect()
+        except (TypeError, RuntimeError):
+            pass
+
+        self.reset_button.clicked.connect(self.on_next)
+        self._width = 250
+        self.setMinimumWidth(self._width)
+        self.layout().setContentsMargins(0, 0, 0, 0)
+
+        self.events = EmitterGroup(
+            self,
+            next_object=Event,
+            reset_interactions=Event,
+            add_interaction=Event,
         )
 
-        # Modify the UI
-        self.model_selection.parent().setHidden(True)
-        self.image_selection.parent().setHidden(True)
-        self.instance_aggregation_ckbx.setHidden(True)
-        self.auto_refine.setHidden(True)
-        self.auto_refine.parent().setHidden(True)
-        self.propagate_ckbx.setHidden(True)
-        #self.run_ckbx.parent().setHidden(True)
-        self.export_button.parent().setHidden(True)
-
-        self._scribble_brush_size = 2
-
         self.label_layer_name = "nnInteractive - Preview Layer"
-        self.semantic_layer_name = "nnInteractive - Preview Layer"
 
-        self.prediction_colormap = ColorMapper(49, seed=0.75, background_value=0)
+        # ARTIST chooses the image and handles export itself. Keep the new
+        # Local/Remote settings visible.
+        self._hide_group_containing(self.image_selection)
+        self._hide_group_containing(self.auto_refine)
+        self._hide_group_containing(self.aggregation_output_combo)
+        self._hide_group_containing(self.export_button)
 
-        self.preview_layer_edited = False
-        # add listener that on manual update of the preview label layer, the point layer is updated as well
-        def on_interaction(event):
-            label_layer = self._viewer.layers[self.label_layer_name]
-            if self._viewer.layers.selection.active == label_layer:
-                self.preview_layer_edited = True
-                return
-            if self._viewer.layers.selection.active != label_layer and self.preview_layer_edited:
-                self.preview_layer_edited = False
-                # self.session
-                # crop (as in preprocessing)
-                initial_seg = label_layer.astype(np.uint8)
-                initial_seg = crop_and_pad_nd(initial_seg, self.preprocessed_props['bbox_used_for_cropping'])
+        self._apply_inference_config(inference_config or {})
 
-                # initial seg is written into initial seg buffer
-                interaction_channel = -7
-                self.interactions[interaction_channel] = initial_seg.to(self.interactions.device)
+    @staticmethod
+    def _find_ancestor_groupbox(widget: QWidget) -> QGroupBox | None:
+        parent = widget.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QGroupBox):
+                return parent
+            parent = parent.parentWidget()
+        return None
 
-        #self._viewer.layers.selection.events.active.connect(on_interaction)
+    def _hide_group_containing(self, widget: QWidget) -> None:
+        group = self._find_ancestor_groupbox(widget)
+        if group is not None:
+            group.setHidden(True)
 
-    def add_preview_label_layer(self, data, name) -> None:
+    def _reset_interaction_layers_in_place(self) -> None:
+        """Reset nnInteractive prompt layers without removing them from Napari.
+
+        This avoids repeated VisPy/OpenGL resource destruction during Next Object
+        (native glDeleteTexture access violation on Windows).
         """
-        Check if a layer with the layer_name already exists. If yes rename this by adding an index
-        and afterward create the layer
-        :return:
-        :rtype:
+        for layer_name in self.layer_dict.values():
+            if layer_name not in self._viewer.layers:
+                continue
+
+            layer = self._viewer.layers[layer_name]
+
+            with layer.events.blocker():
+                if layer_name == self.scribble_layer_name:
+                    layer.data.fill(0)
+
+                    if hasattr(layer, "_last_slice_id"):
+                        layer._last_slice_id = None
+
+                    if hasattr(layer, "_last_dim_not_displayed"):
+                        layer._last_dim_not_displayed = None
+
+                    if hasattr(layer, "_is_free"):
+                        layer._is_free = False
+
+                    for history_name in (
+                        "_undo_history",
+                        "_redo_history",
+                        "_staged_history",
+                    ):
+                        history = getattr(layer, history_name, None)
+                        if hasattr(history, "clear"):
+                            history.clear()
+
+                else:
+                    while len(layer.data) > 0:
+                        layer.remove_last()
+
+                    if hasattr(layer, "_is_free"):
+                        layer._is_free = True
+
+                    if hasattr(layer, "selected_data"):
+                        layer.selected_data = set()
+
+                    if hasattr(layer, "_finish_drawing"):
+                        layer._finish_drawing()
+
+            layer.refresh()
+        self._interaction_history = []
+
+    def _clear_layers(self) -> None:
+        """Clear prompt layers.
         """
+
+        if self._preserve_interaction_layers_on_next:
+            self._reset_interaction_layers_in_place()
+            return
+
+        super()._clear_layers()
+        
+    def _apply_inference_config(self, config: dict[str, Any]) -> None:
+        """Apply optional ARTIST defaults without duplicating backend logic.
+
+        Supported keys:
+          backend: "local" or "remote"
+          server_url: URL of nninteractive-server
+          local_checkpoint: optional local checkpoint path
+
+        API keys deliberately do not come from YAML. If the API-key field is
+        empty, nnInteractive uses NN_INTERACTIVE_API_KEY from the environment.
+        """
+        backend = config.get("backend")
+        if backend is not None:
+            backend = str(backend).strip().lower()
+            if backend not in {"local", "remote"}:
+                raise ValueError(
+                    "nninteractive.backend must be either 'local' or 'remote'"
+                )
+
+            target_index = 1 if backend == "remote" else 0
+            if self.mode_switch.index != target_index:
+                self.mode_switch._uncheck()
+                self.mode_switch._check(target_index)
+                self.on_mode_switched()
+
+        server_url = config.get("server_url")
+        if server_url:
+            self.server_url_edit.blockSignals(True)
+            self.server_url_edit.setText(str(server_url))
+            self.server_url_edit.blockSignals(False)
+
+        local_checkpoint = config.get("local_checkpoint")
+        if local_checkpoint:
+            self.model_selection_local.blockSignals(True)
+            self.model_selection_local.setText(str(local_checkpoint))
+            self.model_selection_local.blockSignals(False)
+
+    def add_preview_label_layer(self, data: np.ndarray, name: str) -> None:
         label_layer = PreviewLabelsLayer(
             data,
             name=name,
@@ -79,74 +184,20 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
             translate=self.session_cfg["translate"],
             rotate=self.session_cfg["rotate"],
             shear=self.session_cfg["shear"],
-            # colormap=self.colormap[index],
             metadata=self.session_cfg["metadata"],
         )
         label_layer.contour = 1
         label_layer.editable = False
-    
         label_layer._source = self.session_cfg["source"]
-
         self._viewer.add_layer(label_layer)
 
-    def _prevent_drawing_with_right_click(self, layer, event):
-        if event.button != 2 or layer.mode == "PAN_ZOOM":  # not right click
-            return
-
-        if isinstance(layer,BBoxLayer) or isinstance(layer,LassoLayer):
-            if layer._is_creating or layer._is_moving:
-                return
-                #layer._finish_drawing()
-
-        prev_mode = layer.mode
-        layer.mode = "PAN_ZOOM"
-        # Keep the mode in PAN_ZOOM until the mouse is released or moved (indicating a drag), then revert to the previous mode.
-        while event.type == 'mouse_move' or event.type == 'mouse_press':
-            yield
-        layer.mode = prev_mode
-
-    def add_point_layer(self) -> None:
-        """Adds a scribble layer to the viewer with an initial blank data array."""
-        super().add_point_layer()
-        point_layer = self._viewer.layers[self.point_layer_name]
-        point_layer.opacity = 0.3
-
-    def add_scribble_layer(self) -> None:
-        """Adds a scribble layer to the viewer with an initial blank data array."""
-        super().add_scribble_layer()
-        scribble_layer = self._viewer.layers[self.scribble_layer_name]
-        scribble_layer.opacity = 0.3
-        if scribble_layer is not None and self._prevent_drawing_with_right_click not in scribble_layer.mouse_drag_callbacks:
-            scribble_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
-
-    def add_bbox_layer(self) -> None:
-        """Adds a bounding box layer to the viewer."""
-        super().add_bbox_layer()
-        bbox_layer = self._viewer.layers[self.bbox_layer_name]
-        if bbox_layer is not None and self._prevent_drawing_with_right_click not in bbox_layer.mouse_drag_callbacks:
-            bbox_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
-
-    def add_lasso_layer(self) -> None:
-        """Adds a lasso layer to the viewer."""
-        super().add_lasso_layer()
-        lasso_layer = self._viewer.layers[self.lasso_layer_name]
-        if lasso_layer is not None and self._prevent_drawing_with_right_click not in lasso_layer.mouse_drag_callbacks:
-            lasso_layer.mouse_drag_callbacks.insert(0, self._prevent_drawing_with_right_click)
-
-    def add_label_layer(self, data, name) -> None:
-        """
-        Check if a layer with the layer_name already exists. If yes rename this by adding an index
-        and afterward create the layer
-        :return:
-        :rtype:
-        """
+    def add_label_layer(self, data: np.ndarray, name: str) -> None:
         if name == self.label_layer_name:
             self.add_preview_label_layer(data, name)
             return
 
         label_layer = ManualLabelsLayer(
             data,
-            # self._data_result,
             name=name,
             opacity=0.9,
             affine=self.session_cfg["affine"],
@@ -154,101 +205,65 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
             translate=self.session_cfg["translate"],
             rotate=self.session_cfg["rotate"],
             shear=self.session_cfg["shear"],
-            # colormap=self.colormap[index],
             metadata=self.session_cfg["metadata"],
         )
         label_layer.contour = 1
         label_layer._source = self.session_cfg["source"]
-        label_layer.colormap = self.colormap[self.object_index]
-
         self._viewer.add_layer(label_layer)
 
-
     def add_point_layer(self) -> None:
-        """Adds a single point layer to the viewer."""
-        point_layer = SinglePointLayer(
-            name=self.point_layer_name,
-            ndim=self.session_cfg["ndim"],
-            affine=self.session_cfg["affine"],
-            scale=self.session_cfg["scale"],
-            translate=self.session_cfg["translate"],
-            rotate=self.session_cfg["rotate"],
-            shear=self.session_cfg["shear"],
-            metadata=self.session_cfg["metadata"],
-            opacity=0.7,
-            size=2,
-            prompt_index=self.prompt_button.index,
-        )
+        super().add_point_layer()
+        self._viewer.layers[self.point_layer_name].opacity = 0.3
 
-        # point_layer.size = 0.2
-        point_layer.events.finished.connect(self.on_interaction)
-        self._viewer.add_layer(point_layer)
-    
-    def add_interaction(self,*args,**kwargs) -> None:
-        super().add_interaction(*args,**kwargs)
-        #self.events.add_interaction()
+    def add_scribble_layer(self) -> None:
+        # Keep the v2 ScribbleLayer. Its get_last() returns a cropped scribble
+        # plus its bbox, which is efficient for remote inference.
+        super().add_scribble_layer()
+        self._viewer.layers[self.scribble_layer_name].opacity = 0.3
+
+    def add_bbox_layer(self) -> None:
+        super().add_bbox_layer()
+
+    def add_lasso_layer(self) -> None:
+        super().add_lasso_layer()
+
+        lasso_layer = self._viewer.layers[self.lasso_layer_name]
+        lasso_layer.opacity = 0.5
+
+        def ensure_last_cursor_position(layer, event):
+            if (
+                getattr(layer, "_is_creating", False)
+                and getattr(layer, "_last_cursor_position", None) is None
+            ):
+                layer._last_cursor_position = np.array(event.pos)
+
+        lasso_layer.mouse_move_callbacks.insert(0, ensure_last_cursor_position)
+
+    def add_interaction(self, *args: Any, **kwargs: Any) -> None:
+        super().add_interaction(*args, **kwargs)
+        # Preserve the current BEACON study-log behaviour for this first migration.
+        # self.events.add_interaction()
 
     def on_reset_interactions(self) -> None:
         super().on_reset_interactions()
         self.events.reset_interactions()
-    
-    def on_next(self) -> None:
-        """
-        Prepares the next label layer for interactions in the viewer.
 
-        Retrieves the index of the last labeled object, renames the current label layer with
-        this index, unbinds the original data by creating a deep copy, and clears all interaction
-        layers. A new label layer with an updated colormap is then added to the viewer.
+    def on_next(self, *args, **kwargs) -> None:
+        """Store the current object and prepare the next one.
         """
-        # Rename the current layer and add a new one
+        if self.label_layer_name not in self._viewer.layers:
+            return
+
         label_layer = self._viewer.layers[self.label_layer_name]
-        if not self.instance_aggregation_ckbx.isChecked():
-            
-            _name = f"Prediction {self.object_index+1}"
-            self.add_preview_label_layer(label_layer.data.copy(), _name)
-            self._viewer.layers[_name].colormap = self.prediction_colormap[(self.object_index+1) % 48]
-            self._viewer.layers[_name].visible = False
 
-            _name = f"Segmentation {self.object_index+1}"
-            self.add_label_layer(label_layer.data.copy(), _name)
+        if not np.any(label_layer.data):
+            return
 
-            self._viewer.layers[_name].colormap = self.colormap[self.object_index]
+        self._preserve_interaction_layers_on_next = True
 
-        else:
-            _sem_name = f"semantic map - {self.session_cfg['name']}"
-            if _sem_name not in self._viewer.layers:
-                self.add_label_layer(np.zeros_like(label_layer.data), _sem_name)
+        try:
+            super().on_next(*args, **kwargs)
+        finally:
+            self._preserve_interaction_layers_on_next = False
 
-            sem_layer = self._viewer.layers[_sem_name]
-
-            sem_layer.data[label_layer.data == 1] = self.object_index + 1
-            sem_layer.refresh()
-
-        self.object_index += 1
-        label_layer.colormap = self.colormap[self.object_index]
-        
         self.events.next_object()
-
-        self._clear_layers()
-        self.prompt_button._uncheck()
-        self.prompt_button._check(0)
-
-    def closeEvent(self, event):
-        super().closeEvent(event)
-        self._viewer.layers.events.inserted.disconnect(self.image_selection._update)
-        self._viewer.layers.events.removed.disconnect(self.image_selection._update)
-        for layer in self.image_selection.layer_names:
-            layer.events.name.disconnect(self.image_selection._update)
-        self.image_selection.close()
-        self.image_selection.deleteLater()
-
-        
-        self._viewer.layers.events.inserted.disconnect(self.label_for_init._update)
-        self._viewer.layers.events.removed.disconnect(self.label_for_init._update)
-        for layer in self.label_for_init.layer_names:
-            layer.events.name.disconnect(self.label_for_init._update)
-        self.label_for_init.close()
-        self.label_for_init.deleteLater()
-
-        self._viewer.layers.selection.events.active.disconnect(self.on_layer_selected)
-        self._viewer.dims.events.order.disconnect(self.on_axis_change)

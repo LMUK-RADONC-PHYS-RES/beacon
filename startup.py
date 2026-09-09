@@ -1,3 +1,6 @@
+from patches.nninteractive_windows_fix import apply_nninteractive_windows_fix
+apply_nninteractive_windows_fix()
+
 import napari
 from napari import Viewer
 

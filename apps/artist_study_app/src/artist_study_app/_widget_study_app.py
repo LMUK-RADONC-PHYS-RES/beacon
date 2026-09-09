@@ -494,7 +494,10 @@ class StudyAppFullWidget(QWidget):
                 self.manual_segmentation_widget.parent().hide()
             if self.automatic_segmentation_widget is None:
                 from napari_nninteractive_minimal import nnInteractiveWidgetMinimal
-                self.automatic_segmentation_widget = nnInteractiveWidgetMinimal(self._viewer)
+                self.automatic_segmentation_widget = nnInteractiveWidgetMinimal(
+                    self._viewer,
+                    inference_config=self.study_protocol.get("nninteractive", {}),
+                )
                 self._viewer.window.add_dock_widget(
                     self.automatic_segmentation_widget, name="nnInteractive Segmentation", area="right"
                 )
