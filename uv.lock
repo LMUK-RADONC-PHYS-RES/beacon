@@ -17,16 +17,27 @@ members = [
     "napari-edit-log",
     "napari-inverted-scrolling",
     "napari-manual-segmentation",
+    "napari-nninteractive-beacon",
     "napari-nninteractive-minimal",
     "napari-promptable",
     "napari-promptable-sam2",
     "napari-quick-view",
+    "napari-segmentation-metrics",
     "napari-shape-based-interpolation",
     "napari-shifted-labels",
     "napari-size-estimator",
     "napari-view-switch",
     "recist-standalone-app",
     "recist-study-app",
+]
+
+[[package]]
+name = "absl-py"
+version = "2.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/4f/d79676ab82f2e42fc3611618139f13a9c4c31d0cff4b486982047679a802/absl_py-2.5.0.tar.gz", hash = "sha256:0c996f25c0490700fadabe6351630f6111534fa0ae252cc6d2014ea3b141135f", size = 118119, upload-time = "2026-07-03T10:57:48.157Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/0a/a10b45aab35b175aded078a462dc8d0c698f5b13946e7cb0869097b78bb6/absl_py-2.5.0-py3-none-any.whl", hash = "sha256:0f17b89f2a4eaaedc4f28c622998aa690564b3012a396a4ffad0821007fe03ba", size = 137410, upload-time = "2026-07-03T10:57:46.735Z" },
 ]
 
 [[package]]
@@ -1714,10 +1725,12 @@ dependencies = [
     { name = "napari-inverted-scrolling" },
     { name = "napari-manual-segmentation" },
     { name = "napari-nninteractive", extra = ["local"] },
+    { name = "napari-nninteractive-beacon" },
     { name = "napari-nninteractive-minimal" },
     { name = "napari-promptable" },
     { name = "napari-promptable-sam2" },
     { name = "napari-quick-view" },
+    { name = "napari-segmentation-metrics" },
     { name = "napari-shape-based-interpolation" },
     { name = "napari-shifted-labels" },
     { name = "napari-toolkit" },
@@ -1739,10 +1752,12 @@ requires-dist = [
     { name = "napari-inverted-scrolling", editable = "packages/napari-inverted-scrolling" },
     { name = "napari-manual-segmentation", editable = "packages/napari-manual-segmentation" },
     { name = "napari-nninteractive", extras = ["local"], specifier = "==2.5.3" },
+    { name = "napari-nninteractive-beacon", editable = "packages/napari-nninteractive-beacon" },
     { name = "napari-nninteractive-minimal", editable = "packages/napari-nninteractive-minimal" },
     { name = "napari-promptable", editable = "packages/napari-promptable" },
     { name = "napari-promptable-sam2", editable = "packages/napari-promptable-sam2" },
     { name = "napari-quick-view", editable = "packages/napari-quick-view" },
+    { name = "napari-segmentation-metrics", editable = "packages/napari-segmentation-metrics" },
     { name = "napari-shape-based-interpolation", editable = "packages/napari-shape-based-interpolation" },
     { name = "napari-shifted-labels", editable = "packages/napari-shifted-labels" },
     { name = "napari-toolkit" },
@@ -1876,12 +1891,32 @@ local = [
 ]
 
 [[package]]
+name = "napari-nninteractive-beacon"
+version = "0.1.0"
+source = { editable = "packages/napari-nninteractive-beacon" }
+dependencies = [
+    { name = "napari-beacon-layers" },
+    { name = "napari-nninteractive", extra = ["local"] },
+    { name = "numpy" },
+    { name = "qtpy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "napari-beacon-layers", editable = "packages/napari-beacon-layers" },
+    { name = "napari-nninteractive", extras = ["local"], specifier = "==2.5.3" },
+    { name = "numpy" },
+    { name = "qtpy" },
+]
+
+[[package]]
 name = "napari-nninteractive-minimal"
 version = "0.1.0"
 source = { editable = "packages/napari-nninteractive-minimal" }
 dependencies = [
     { name = "napari-beacon-layers" },
     { name = "napari-nninteractive", extra = ["local"] },
+    { name = "napari-nninteractive-beacon" },
     { name = "napari-toolkit" },
     { name = "numpy" },
     { name = "qtpy" },
@@ -1891,6 +1926,7 @@ dependencies = [
 requires-dist = [
     { name = "napari-beacon-layers", editable = "packages/napari-beacon-layers" },
     { name = "napari-nninteractive", extras = ["local"], specifier = "==2.5.3" },
+    { name = "napari-nninteractive-beacon", editable = "packages/napari-nninteractive-beacon" },
     { name = "napari-toolkit" },
     { name = "numpy" },
     { name = "qtpy" },
@@ -1992,6 +2028,27 @@ requires-dist = [
     { name = "napari-toolkit" },
     { name = "numpy" },
     { name = "qtpy" },
+]
+
+[[package]]
+name = "napari-segmentation-metrics"
+version = "0.1.0"
+source = { editable = "packages/napari-segmentation-metrics" }
+dependencies = [
+    { name = "napari" },
+    { name = "numpy" },
+    { name = "qtpy" },
+    { name = "scipy" },
+    { name = "surface-distance" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "napari", specifier = ">=0.6" },
+    { name = "numpy" },
+    { name = "qtpy" },
+    { name = "scipy", specifier = ">=1.10" },
+    { name = "surface-distance", specifier = ">=0.1" },
 ]
 
 [[package]]
@@ -3740,6 +3797,20 @@ wheels = [
 [package.optional-dependencies]
 iconify = [
     { name = "pyconify" },
+]
+
+[[package]]
+name = "surface-distance"
+version = "0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/12/ae/a9091176cf42bbbe64ce21d1c3b49d1502d1fd523215bb5ed65fa2efc0c5/surface_distance-0.1.tar.gz", hash = "sha256:2e7bfe2e33f4a3e30041200a85b655b39e05b09b8b3b67a8615b1d92704c6b76", size = 13160, upload-time = "2024-07-30T09:06:26.084Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/61/45e9641801e043497a92bda1aa7e87dd933eafa1eed1d6be8dfc9736f939/surface_distance-0.1-py3-none-any.whl", hash = "sha256:cc837ca7cd269136a1e16382384f6b9193f4519dd4659b8dbdbb794e4073f768", size = 14713, upload-time = "2024-07-30T09:06:24.477Z" },
 ]
 
 [[package]]

@@ -28,6 +28,7 @@ dependencies = [
     "qtpy",
     "napari_toolkit",
     "napari-beacon-layers",
+    "napari-nninteractive-beacon",
     "napari-nninteractive[local]==2.5.3",
 ]
 
