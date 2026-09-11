@@ -3,15 +3,16 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from napari.layers.labels._labels_constants import Mode
 from qtpy.QtWidgets import QGroupBox, QWidget
 
 from napari.viewer import Viewer
-from napari_nninteractive import nnInteractiveWidget
-from napari_beacon_layers import ManualLabelsLayer, PreviewLabelsLayer
+from napari_nninteractive_beacon.widget_nninteractive import nnInteractiveWidgetBeacon
+from napari_beacon_layers import ManualLabelsLayer
 from napari.utils.events import EmitterGroup, Event
 
 
-class nnInteractiveWidgetMinimal(nnInteractiveWidget):
+class nnInteractiveWidgetMinimal(nnInteractiveWidgetBeacon):
     """BEACON wrapper around napari-nninteractive >= 2.5.
 
     Inference is delegated to upstream napari-nninteractive:
@@ -50,6 +51,8 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
             next_object=Event,
             reset_interactions=Event,
             add_interaction=Event,
+            manual_refinement_started=Event,
+            manual_refinement_finished=Event,
         )
 
         self.label_layer_name = "nnInteractive - Preview Layer"
@@ -175,7 +178,7 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
             self.model_selection_local.blockSignals(False)
 
     def add_preview_label_layer(self, data: np.ndarray, name: str) -> None:
-        label_layer = PreviewLabelsLayer(
+        label_layer = ManualLabelsLayer(
             data,
             name=name,
             opacity=0.9,
@@ -188,6 +191,7 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
         )
         label_layer.contour = 1
         label_layer.editable = False
+        label_layer.mode = Mode.PAN_ZOOM
         label_layer._source = self.session_cfg["source"]
         self._viewer.add_layer(label_layer)
 
@@ -239,14 +243,25 @@ class nnInteractiveWidgetMinimal(nnInteractiveWidget):
 
         lasso_layer.mouse_move_callbacks.insert(0, ensure_last_cursor_position)
 
-    def add_interaction(self, *args: Any, **kwargs: Any) -> None:
-        super().add_interaction(*args, **kwargs)
-        # Preserve the current BEACON study-log behaviour for this first migration.
-        # self.events.add_interaction()
+    def add_interaction(self, *_args: Any, **_kwargs: Any) -> None:
+        if self._manual_refinement_active:
+            return
+        super().add_interaction()
+        self.events.add_interaction()
 
-    def on_reset_interactions(self) -> None:
+    def on_reset_interactions(self, *_args: Any, **_kwargs: Any) -> None:
+        if self._manual_refinement_active:
+            return
         super().on_reset_interactions()
         self.events.reset_interactions()
+
+    def _on_manual_refinement_started(self) -> None:
+        super()._on_manual_refinement_started()
+        self.events.manual_refinement_started()
+
+    def _on_manual_refinement_finished(self) -> None:
+        super()._on_manual_refinement_finished()
+        self.events.manual_refinement_finished()
 
     def on_next(self, *args, **kwargs) -> None:
         """Store the current object and prepare the next one.

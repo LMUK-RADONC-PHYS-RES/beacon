@@ -1,0 +1,16 @@
+name: napari-segmentation-metrics
+display_name: Segmentation Metrics
+visibility: public
+categories:
+  - Segmentation
+  - Annotation
+
+contributions:
+  commands:
+    - id: napari-segmentation-metrics.make_widget
+      python_name: napari_segmentation_metrics.widget:SegmentationMetricsWidget
+      title: Segmentation Metrics
+
+  widgets:
+    - command: napari-segmentation-metrics.make_widget
+      display_name: Segmentation Metrics

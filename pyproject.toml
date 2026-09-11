@@ -15,6 +15,8 @@ dependencies = [
     "napari-inverted-scrolling",
     "napari-manual-segmentation",
     "napari-nninteractive-minimal",
+    "napari-nninteractive-beacon",
+    "napari-segmentation-metrics",
     "artist_study_app",
     "artist_standalone_app",
     "recist_study_app",
@@ -29,6 +31,7 @@ dependencies = [
 napari-promptable = { workspace = true }
 napari-promptable-sam2 = { workspace = true }
 napari-shape-based-interpolation = { workspace = true }
+napari-segmentation-metrics = { workspace = true }
 napari-shifted-labels = { workspace = true }
 napari-edit-log = { workspace = true }
 napari-quick-view = { workspace = true }
@@ -36,6 +39,7 @@ napari-view-switch = { workspace = true }
 napari-beacon-layers = { workspace = true }
 napari-inverted-scrolling = { workspace = true }
 napari-manual-segmentation = { workspace = true }
+napari-nninteractive-beacon = { workspace = true }
 napari-nninteractive-minimal = { workspace = true }
 artist-study-app = { workspace = true }
 artist-standalone-app = { workspace = true }

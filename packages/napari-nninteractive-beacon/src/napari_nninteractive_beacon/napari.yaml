@@ -1,0 +1,16 @@
+name: napari-nninteractive-beacon
+display_name: nnInteractive BEACON
+visibility: hidden
+categories:
+  - Segmentation
+  - Annotation
+
+contributions:
+  commands:
+    - id: napari-nninteractive-beacon.make_widget
+      title: nnInteractive BEACON Classic
+      python_name: napari_nninteractive_beacon:nnInteractiveWidgetBeacon
+
+  widgets:
+    - command: napari-nninteractive-beacon.make_widget
+      display_name: nnInteractive (BEACON Classic)
